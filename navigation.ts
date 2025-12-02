@@ -8,7 +8,7 @@ export const routing = defineRouting({
   // Varsayılan dil
   defaultLocale: 'tr',
 
-  // URL Haritası (Localized Pathnames) - SEO uyumlu dinamik URL'ler
+  // URL Haritası - SEO uyumlu dinamik URL'ler
   pathnames: {
     '/': '/',
     '/login': {
