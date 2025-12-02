@@ -4,8 +4,45 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* --- LIGHT MODE (Kurumsal/Enterprise) --- */
 :root {
-  /* --- INTERSTELLAR PALETTE (CSS Variables) --- */
+  --background: 0 0% 100%; /* Pure White */
+  --foreground: 222.2 84% 4.9%; /* Dark Navy */
+
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+
+  --primary: 217.2 91.2% 59.8%; /* Electric Blue */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 262.1 83.3% 57.8%; /* Neon Purple */
+  --secondary-foreground: 0 0% 100%;
+
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 217.2 91.2% 59.8%;
+
+  --radius: 0.75rem;
+
+  /* Landing Page specific */
+  --hero-gradient-start: 217.2 91.2% 59.8%;
+  --hero-gradient-end: 262.1 83.3% 57.8%;
+}
+
+/* --- DARK MODE (Uzay/Interstellar) --- */
+.dark {
   --background: 224 71% 4%; /* #020617 (Deep Space Black) */
   --foreground: 210 40% 98%; /* #f8fafc (Star White) */
 
@@ -33,8 +70,10 @@
   --border: 217.2 32.6% 17.5%;
   --input: 217.2 32.6% 17.5%;
   --ring: 212.7 26.8% 83.9%;
-  
-  --radius: 0.75rem;
+
+  /* Landing Page specific */
+  --hero-gradient-start: 217.2 91.2% 59.8%;
+  --hero-gradient-end: 262.1 83.3% 57.8%;
 }
 
 /* --- TAILWIND v4 THEME CONFIGURATION --- */
@@ -87,16 +126,19 @@
 /* --- GLOBAL STYLES --- */
 @layer base {
   * {
-    @apply border-border; /* Artık @theme içinde tanımlı olduğu için çalışacak */
+    @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
-    /* Uzay Izgarası */
+    min-height: 100vh;
+  }
+  
+  /* Dark mode için uzay ızgarası */
+  .dark body {
     background-image: 
       linear-gradient(to right, rgba(30, 41, 59, 0.3) 1px, transparent 1px),
       linear-gradient(to bottom, rgba(30, 41, 59, 0.3) 1px, transparent 1px);
     background-size: 4rem 4rem;
-    min-height: 100vh;
   }
 }
 
@@ -106,7 +148,7 @@
 }
 
 @utility glass-panel {
-  @apply bg-slate-950/40 backdrop-blur-xl border border-slate-800/50 shadow-xl;
+  @apply bg-white/80 backdrop-blur-xl border border-border shadow-lg dark:bg-slate-950/40 dark:border-slate-800/50 dark:shadow-xl;
 }
 
 @utility neon-border {
@@ -174,4 +216,184 @@
     /* ÖNEMLİ: hsl() sarmalayıcısı eklendi */
     scrollbar-color: hsl(var(--primary) / 0.3) transparent;
   }
+}
+
+/* --- LANDING PAGE ANIMATIONS --- */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes gradient-x {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-gradient-x {
+  background-size: 200% 200%;
+  animation: gradient-x 15s ease infinite;
+}
+
+.animate-shimmer {
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.animate-fade-up {
+  animation: fade-up 0.6s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.5s ease-out forwards;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.6s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.6s ease-out forwards;
+}
+
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
+/* Staggered animations */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+.stagger-6 { animation-delay: 0.6s; }
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glass effect - Light mode */
+.glass-light {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Glass effect - Dark mode */
+.glass-dark {
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(59, 130, 246, 0.1);
+}
+
+/* Feature card hover effect */
+.feature-card {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.feature-card:hover {
+  transform: translateY(-8px);
+}
+
+/* Pricing card popular badge glow */
+.pricing-popular {
+  position: relative;
+}
+
+.pricing-popular::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+  border-radius: inherit;
+  z-index: -1;
+  opacity: 0.5;
+  filter: blur(15px);
+}
+
+/* Testimonial card */
+.testimonial-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.testimonial-card::before {
+  content: '"';
+  position: absolute;
+  top: -20px;
+  left: 20px;
+  font-size: 120px;
+  font-family: Georgia, serif;
+  opacity: 0.05;
+  pointer-events: none;
 }

@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Loader2, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import ProposalTemplate from "@/components/templates/ProposalTemplate"; // <--- Yeni bileşen
+import ProposalTemplate from "@/components/templates/ProposalTemplate";
 
 export default function ProposalPreviewPage() {
   const params = useParams();
@@ -29,7 +29,7 @@ export default function ProposalPreviewPage() {
 
       const { data: propData, error: propError } = await supabase
         .from("proposals")
-        .select("*").eq('is_archived', false)
+        .select("*")
         .eq("access_key", secretKey)
         .single();
 
@@ -44,7 +44,7 @@ export default function ProposalPreviewPage() {
       if (propData.customer_id) {
         const { data: custData } = await supabase
           .from("customers")
-          .select("*").eq('is_archived', false)
+          .select("*")
           .eq("id", propData.customer_id)
           .single();
         
@@ -78,3 +78,4 @@ export default function ProposalPreviewPage() {
     </div>
   );
 }
+

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "@/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/utils/supabase/client";
+import { useOrganization, canDeleteData } from "@/contexts/OrganizationContext";
 import { toast } from "sonner";
 import {
   Rocket,
@@ -32,6 +33,7 @@ export default function ProjectsPage() {
   const supabase = createClient();
   const router = useRouter();
   const t = useTranslations("Projects");
+  const { currentOrg, userRole } = useOrganization();
 
   const [projects, setProjects] = useState<Project[]>([]); // Tip düzeltildi
   const [loading, setLoading] = useState(true);
@@ -100,24 +102,24 @@ export default function ProjectsPage() {
     const days = getDaysLeft(deadline);
     if (days < 0)
       return (
-        <span className="flex items-center gap-1 text-red-500 font-bold">
+        <span className="flex items-center gap-1 text-red-600 dark:text-red-500 font-bold">
           <AlertCircle className="w-3 h-3" /> {Math.abs(days)} Gün Gecikti
         </span>
       );
     if (days === 0)
       return (
-        <span className="flex items-center gap-1 text-orange-500 font-bold">
+        <span className="flex items-center gap-1 text-orange-600 dark:text-orange-500 font-bold">
           <Clock className="w-3 h-3" /> Bugün Son!
         </span>
       );
     if (days <= 3)
       return (
-        <span className="flex items-center gap-1 text-orange-400 font-bold">
+        <span className="flex items-center gap-1 text-orange-500 dark:text-orange-400 font-bold">
           <Clock className="w-3 h-3" /> {days} Gün Kaldı
         </span>
       );
     return (
-      <span className="flex items-center gap-1 text-blue-400">
+      <span className="flex items-center gap-1 text-primary">
         <Clock className="w-3 h-3" /> {days} Gün Kaldı
       </span>
     );
@@ -128,10 +130,10 @@ export default function ProjectsPage() {
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-white glow-text flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
             <Rocket className="h-8 w-8 text-orange-500" /> {t("title")}
           </h1>
-          <p className="text-slate-400 mt-1">
+          <p className="text-muted-foreground mt-1">
             {t("subtitle")}
           </p>
         </div>
@@ -142,11 +144,11 @@ export default function ProjectsPage() {
       {/* PROJE KARTLARI GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
-          <div className="text-slate-500 col-span-full text-center py-20">
+          <div className="text-muted-foreground col-span-full text-center py-20">
             Yükleniyor...
           </div>
         ) : projects.length === 0 ? (
-          <div className="text-slate-500 col-span-full text-center py-20 border border-dashed border-slate-800 rounded-xl bg-slate-900/20">
+          <div className="text-muted-foreground col-span-full text-center py-20 border border-dashed border-border rounded-xl bg-muted/30">
             Henüz aktif proje yok. Teklifleri onaylayarak proje
             başlatabilirsiniz.
           </div>
@@ -155,41 +157,43 @@ export default function ProjectsPage() {
             <div
               key={project.id}
               onClick={() => handleCardClick(project.id)}
-              className="group glass-panel p-6 rounded-2xl border border-slate-800 hover:border-blue-500/50 transition-all hover:transform hover:-translate-y-1 relative overflow-hidden cursor-pointer"
+              className="group bg-card/50 backdrop-blur-sm p-6 rounded-2xl border border-border hover:border-primary/50 transition-all hover:transform hover:-translate-y-1 relative overflow-hidden cursor-pointer shadow-sm hover:shadow-md"
             >
               {/* Neon Glow Efekti (Hover) */}
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-primary to-secondary opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
-              {/* SİLME BUTONU (SAĞ ÜST - HOVER İLE GÖRÜNÜR) */}
-              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  className="h-8 w-8 rounded-full shadow-lg bg-red-500/20 text-red-400 hover:bg-red-600 hover:text-white border border-red-500/30"
-                  onClick={(e) => handleDelete(e, project.id)}
-                  title="Projeyi Sil"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+              {/* SİLME BUTONU (SAĞ ÜST - HOVER İLE GÖRÜNÜR) - Sadece admin/owner */}
+              {canDeleteData(userRole) && (
+                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="h-8 w-8 rounded-full shadow-lg bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-600 hover:text-white border border-red-200 dark:border-red-500/30"
+                    onClick={(e) => handleDelete(e, project.id)}
+                    title="Projeyi Sil"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
 
               <div className="flex justify-between items-start mb-4 pr-8">
                 {" "}
                 {/* pr-8: Sil butonu için boşluk */}
                 <div>
                   <h3
-                    className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors line-clamp-1"
+                    className="text-lg font-bold text-foreground group-hover:text-primary transition-colors line-clamp-1"
                     title={project.name}
                   >
                     {project.name}
                   </h3>
-                  <p className="text-sm text-slate-400 line-clamp-1">
+                  <p className="text-sm text-muted-foreground line-clamp-1">
                     {project.customers?.company_name}
                   </p>
                 </div>
                 <Badge
                   variant="outline"
-                  className="bg-blue-900/20 text-blue-400 border-blue-800 shrink-0"
+                  className="bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 shrink-0"
                 >
                   Active
                 </Badge>
@@ -197,19 +201,19 @@ export default function ProjectsPage() {
 
               {/* İlerleme Çubuğu */}
               <div className="mb-4">
-                <div className="flex justify-between text-xs text-slate-400 mb-1">
+                <div className="flex justify-between text-xs text-muted-foreground mb-1">
                   <span>İlerleme</span>
                   <span>{project.progress}%</span>
                 </div>
-                <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+                    className="h-full bg-linear-to-r from-primary to-secondary transition-all duration-500 dark:shadow-[0_0_10px_rgba(59,130,246,0.5)]"
                     style={{ width: `${project.progress}%` }}
                   ></div>
                 </div>
               </div>
 
-              <div className="flex justify-between items-center text-xs text-slate-500 pt-4 border-t border-slate-800">
+              <div className="flex justify-between items-center text-xs text-muted-foreground pt-4 border-t border-border">
                 <div className="flex items-center gap-1">
                   <Calendar className="w-3 h-3" />{" "}
                   {formatDate(project.deadline)}

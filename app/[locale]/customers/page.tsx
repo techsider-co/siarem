@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { useOrganization, canEditData, canDeleteData } from "@/contexts/OrganizationContext";
 import { Customer } from "@/types";
 import { toast } from "sonner";
 import {
@@ -53,6 +54,7 @@ import { Separator } from "@/components/ui/separator";
 
 export default function CustomersPage() {
   const supabase = createClient();
+  const { currentOrg, userRole } = useOrganization();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -116,7 +118,14 @@ export default function CustomersPage() {
       toast.warning("Firma Adı zorunludur.");
       return;
     }
-    const { error } = await supabase.from("customers").insert([formData]);
+    if (!currentOrg) {
+      toast.error("Organizasyon bulunamadı.");
+      return;
+    }
+    const { error } = await supabase.from("customers").insert([{
+      ...formData,
+      organization_id: currentOrg.id
+    }]);
     if (error) toast.error("Hata: " + error.message);
     else {
       toast.success("Müşteri eklendi! 🪐");
@@ -246,18 +255,20 @@ export default function CustomersPage() {
     <div className="space-y-8 p-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white glow-text flex items-center gap-3">
-            <Users className="h-8 w-8 text-blue-500" /> Müşteri Veritabanı
+          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+            <Users className="h-8 w-8 text-primary" /> Müşteri Veritabanı
           </h1>
-          <p className="text-slate-400 mt-1">Aktif müşteri listesi.</p>
+          <p className="text-muted-foreground mt-1">Aktif müşteri listesi.</p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white border-0">
-              <Plus className="mr-2 h-4 w-4" /> Yeni Müşteri
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[700px] glass-panel border-slate-700 text-white">
+          {canEditData(userRole) && (
+            <DialogTrigger asChild>
+              <Button className="bg-linear-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground border-0 shadow-lg shadow-primary/25">
+                <Plus className="mr-2 h-4 w-4" /> Yeni Müşteri
+              </Button>
+            </DialogTrigger>
+          )}
+          <DialogContent className="sm:max-w-[700px] bg-card border-border">
             <DialogHeader>
               <DialogTitle>Yeni Müşteri Kaydı</DialogTitle>
               <DialogDescription>Bilgileri giriniz.</DialogDescription>
@@ -267,7 +278,7 @@ export default function CustomersPage() {
                 <div className="space-y-2">
                   <Label>Firma Adı *</Label>
                   <Input
-                    className="bg-slate-900/50 border-slate-700 text-white"
+                    className="bg-muted/50 border-border"
                     value={formData.company_name}
                     onChange={(e) =>
                       setFormData({ ...formData, company_name: e.target.value })
@@ -281,10 +292,10 @@ export default function CustomersPage() {
                       setFormData({ ...formData, sector_code: val })
                     }
                   >
-                    <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white">
+                    <SelectTrigger className="bg-muted/50 border-border">
                       <SelectValue placeholder="Seçiniz" />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-700 text-white">
+                    <SelectContent className="bg-popover border-border">
                       <SelectItem value="ARC">Mimarlık</SelectItem>
                       <SelectItem value="COR">Kurumsal</SelectItem>
                       <SelectItem value="ECO">E-Ticaret</SelectItem>
@@ -297,7 +308,7 @@ export default function CustomersPage() {
                 <div className="space-y-2">
                   <Label>Yetkili</Label>
                   <Input
-                    className="bg-slate-900/50 border-slate-700 text-white"
+                    className="bg-muted/50 border-border"
                     value={formData.contact_person}
                     onChange={(e) =>
                       setFormData({
@@ -310,7 +321,7 @@ export default function CustomersPage() {
                 <div className="space-y-2">
                   <Label>E-Posta</Label>
                   <Input
-                    className="bg-slate-900/50 border-slate-700 text-white"
+                    className="bg-muted/50 border-border"
                     value={formData.email}
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
@@ -321,7 +332,7 @@ export default function CustomersPage() {
               <div className="space-y-2">
                 <Label>Telefon</Label>
                 <Input
-                  className="bg-slate-900/50 border-slate-700 text-white"
+                  className="bg-muted/50 border-border"
                   value={formData.phone}
                   onChange={(e) =>
                     setFormData({ ...formData, phone: e.target.value })
@@ -332,7 +343,7 @@ export default function CustomersPage() {
                 <div className="space-y-2">
                   <Label>İl</Label>
                   <Input
-                    className="bg-slate-900/50 border-slate-700 text-white"
+                    className="bg-muted/50 border-border"
                     value={formData.city}
                     onChange={(e) =>
                       setFormData({ ...formData, city: e.target.value })
@@ -342,7 +353,7 @@ export default function CustomersPage() {
                 <div className="space-y-2">
                   <Label>İlçe</Label>
                   <Input
-                    className="bg-slate-900/50 border-slate-700 text-white"
+                    className="bg-muted/50 border-border"
                     value={formData.district}
                     onChange={(e) =>
                       setFormData({ ...formData, district: e.target.value })
@@ -350,11 +361,11 @@ export default function CustomersPage() {
                   />
                 </div>
               </div>
-              <div className="bg-slate-800/30 p-3 rounded-lg border border-slate-700/50 grid grid-cols-2 gap-4">
+              <div className="bg-muted/30 p-3 rounded-lg border border-border grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Vergi Dairesi</Label>
                   <Input
-                    className="bg-slate-900 border-slate-600 text-white"
+                    className="bg-background border-border"
                     value={formData.tax_office}
                     onChange={(e) =>
                       setFormData({ ...formData, tax_office: e.target.value })
@@ -364,7 +375,7 @@ export default function CustomersPage() {
                 <div className="space-y-2">
                   <Label>Vergi No</Label>
                   <Input
-                    className="bg-slate-900 border-slate-600 text-white"
+                    className="bg-background border-border"
                     value={formData.tax_number}
                     onChange={(e) =>
                       setFormData({ ...formData, tax_number: e.target.value })
@@ -375,14 +386,14 @@ export default function CustomersPage() {
               <div className="space-y-2">
                 <Label>Adres</Label>
                 <Input
-                  className="bg-slate-900/50 border-slate-700 text-white"
+                  className="bg-muted/50 border-border"
                   value={formData.address}
                   onChange={(e) =>
                     setFormData({ ...formData, address: e.target.value })
                   }
                 />
               </div>
-              <Button type="submit" className="mt-4 bg-blue-600 text-white">
+              <Button type="submit" className="mt-4 bg-primary text-primary-foreground hover:bg-primary/90">
                 Kaydet
               </Button>
             </form>
@@ -391,7 +402,7 @@ export default function CustomersPage() {
 
         {/* EDIT MODAL (Kısaltıldı, mantık aynı) */}
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DialogContent className="sm:max-w-[700px] glass-panel border-slate-700 text-white">
+          <DialogContent className="sm:max-w-[700px] bg-card border-border">
             <DialogHeader>
               <DialogTitle>Düzenle</DialogTitle>
             </DialogHeader>
@@ -400,7 +411,7 @@ export default function CustomersPage() {
                 <div className="space-y-2">
                   <Label>Firma Adı</Label>
                   <Input
-                    className="bg-slate-900/50 border-slate-700 text-white"
+                    className="bg-muted/50 border-border"
                     value={editFormData.company_name}
                     onChange={(e) =>
                       setEditFormData({
@@ -418,10 +429,10 @@ export default function CustomersPage() {
                       setEditFormData({ ...editFormData, sector_code: val })
                     }
                   >
-                    <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white">
+                    <SelectTrigger className="bg-muted/50 border-border">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-700 text-white">
+                    <SelectContent className="bg-popover border-border">
                       <SelectItem value="ARC">Mimarlık</SelectItem>
                       <SelectItem value="COR">Kurumsal</SelectItem>
                       <SelectItem value="ECO">E-Ticaret</SelectItem>
@@ -434,7 +445,7 @@ export default function CustomersPage() {
                 <div className="space-y-2">
                   <Label>Yetkili</Label>
                   <Input
-                    className="bg-slate-900/50 border-slate-700 text-white"
+                    className="bg-muted/50 border-border"
                     value={editFormData.contact_person}
                     onChange={(e) =>
                       setEditFormData({
@@ -447,7 +458,7 @@ export default function CustomersPage() {
                 <div className="space-y-2">
                   <Label>E-Posta</Label>
                   <Input
-                    className="bg-slate-900/50 border-slate-700 text-white"
+                    className="bg-muted/50 border-border"
                     value={editFormData.email}
                     onChange={(e) =>
                       setEditFormData({
@@ -461,18 +472,18 @@ export default function CustomersPage() {
               <div className="space-y-2">
                 <Label>Telefon</Label>
                 <Input
-                  className="bg-slate-900/50 border-slate-700 text-white"
+                  className="bg-muted/50 border-border"
                   value={editFormData.phone}
                   onChange={(e) =>
                     setEditFormData({ ...editFormData, phone: e.target.value })
                   }
                 />
               </div>
-              <div className="bg-slate-800/30 p-3 rounded-lg border border-slate-700/50 grid grid-cols-2 gap-4">
+              <div className="bg-muted/30 p-3 rounded-lg border border-border grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Vergi Dairesi</Label>
                   <Input
-                    className="bg-slate-900 border-slate-600 text-white"
+                    className="bg-background border-border"
                     value={editFormData.tax_office}
                     onChange={(e) =>
                       setEditFormData({
@@ -485,7 +496,7 @@ export default function CustomersPage() {
                 <div className="space-y-2">
                   <Label>Vergi No</Label>
                   <Input
-                    className="bg-slate-900 border-slate-600 text-white"
+                    className="bg-background border-border"
                     value={editFormData.tax_number}
                     onChange={(e) =>
                       setEditFormData({
@@ -500,7 +511,7 @@ export default function CustomersPage() {
                 <div className="space-y-2">
                   <Label>İl</Label>
                   <Input
-                    className="bg-slate-900/50 border-slate-700 text-white"
+                    className="bg-muted/50 border-border"
                     value={editFormData.city}
                     onChange={(e) =>
                       setEditFormData({ ...editFormData, city: e.target.value })
@@ -510,7 +521,7 @@ export default function CustomersPage() {
                 <div className="space-y-2">
                   <Label>İlçe</Label>
                   <Input
-                    className="bg-slate-900/50 border-slate-700 text-white"
+                    className="bg-muted/50 border-border"
                     value={editFormData.district}
                     onChange={(e) =>
                       setEditFormData({
@@ -524,7 +535,7 @@ export default function CustomersPage() {
               <div className="space-y-2">
                 <Label>Adres</Label>
                 <Input
-                  className="bg-slate-900/50 border-slate-700 text-white"
+                  className="bg-muted/50 border-border"
                   value={editFormData.address}
                   onChange={(e) =>
                     setEditFormData({
@@ -534,7 +545,7 @@ export default function CustomersPage() {
                   }
                 />
               </div>
-              <Button type="submit" className="mt-4 bg-green-600 text-white">
+              <Button type="submit" className="mt-4 bg-green-600 hover:bg-green-700 text-white">
                 Güncelle
               </Button>
             </form>
@@ -543,76 +554,76 @@ export default function CustomersPage() {
 
         {/* VIEW MODAL (Aynı Kaldı) */}
         <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-          <DialogContent className="sm:max-w-[600px] glass-panel border-slate-700 text-white">
+          <DialogContent className="sm:max-w-[600px] bg-card border-border">
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
-                <Info className="w-5 h-5 text-purple-400" /> Müşteri Profili
+              <DialogTitle className="text-xl font-bold text-foreground flex items-center gap-2">
+                <Info className="w-5 h-5 text-secondary" /> Müşteri Profili
               </DialogTitle>
             </DialogHeader>
             {viewCustomer && (
               <div className="space-y-6 py-2">
-                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 flex items-center justify-between">
+                <div className="bg-muted/50 p-4 rounded-xl border border-border flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-bold text-white">
+                    <h3 className="text-lg font-bold text-foreground">
                       {viewCustomer.company_name}
                     </h3>
-                    <p className="text-slate-400 text-sm flex items-center gap-1">
+                    <p className="text-muted-foreground text-sm flex items-center gap-1">
                       <Users className="w-3 h-3" />{" "}
                       {viewCustomer.contact_person}
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className="inline-flex items-center rounded-full border border-slate-600 px-3 py-1 text-xs font-semibold bg-slate-800 text-blue-300">
+                    <span className="inline-flex items-center rounded-full border border-border px-3 py-1 text-xs font-semibold bg-primary/10 text-primary">
                       {viewCustomer.sector_code || "GENEL"}
                     </span>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-3">
-                    <h4 className="text-xs uppercase font-semibold text-slate-500 tracking-wider">
+                    <h4 className="text-xs uppercase font-semibold text-muted-foreground tracking-wider">
                       İletişim
                     </h4>
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm text-slate-300">
-                        <Mail className="w-4 h-4 text-slate-500" />{" "}
+                      <div className="flex items-center gap-2 text-sm text-foreground/80">
+                        <Mail className="w-4 h-4 text-muted-foreground" />{" "}
                         {viewCustomer.email || "-"}
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-slate-300">
-                        <Phone className="w-4 h-4 text-slate-500" />{" "}
+                      <div className="flex items-center gap-2 text-sm text-foreground/80">
+                        <Phone className="w-4 h-4 text-muted-foreground" />{" "}
                         {viewCustomer.phone || "-"}
                       </div>
                     </div>
                   </div>
                   <div className="space-y-3">
-                    <h4 className="text-xs uppercase font-semibold text-slate-500 tracking-wider">
+                    <h4 className="text-xs uppercase font-semibold text-muted-foreground tracking-wider">
                       Resmi
                     </h4>
-                    <div className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-2">
-                      <div className="flex items-center gap-2 text-sm text-slate-300">
-                        <Building className="w-4 h-4 text-blue-500" />{" "}
+                    <div className="bg-muted/30 p-3 rounded-lg border border-border space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-foreground/80">
+                        <Building className="w-4 h-4 text-primary" />{" "}
                         {viewCustomer.tax_office
                           ? `${viewCustomer.tax_office} VD.`
                           : "-"}
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-slate-300 font-mono">
-                        <Receipt className="w-4 h-4 text-blue-500" />{" "}
+                      <div className="flex items-center gap-2 text-sm text-foreground/80 font-mono">
+                        <Receipt className="w-4 h-4 text-primary" />{" "}
                         {viewCustomer.tax_number || "-"}
                       </div>
                     </div>
                   </div>
                 </div>
-                <Separator className="bg-slate-800" />
+                <Separator className="bg-border" />
                 <div>
-                  <h4 className="text-xs uppercase font-semibold text-slate-500 tracking-wider mb-2">
+                  <h4 className="text-xs uppercase font-semibold text-muted-foreground tracking-wider mb-2">
                     Konum
                   </h4>
-                  <div className="flex items-start gap-2 text-sm text-slate-300">
-                    <MapPin className="w-4 h-4 text-slate-500 mt-0.5" />{" "}
+                  <div className="flex items-start gap-2 text-sm text-foreground/80">
+                    <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />{" "}
                     <div>
-                      <span className="font-semibold text-white">
+                      <span className="font-semibold text-foreground">
                         {viewCustomer.district} / {viewCustomer.city}
                       </span>
-                      <p className="text-slate-400 mt-1 text-xs">
+                      <p className="text-muted-foreground mt-1 text-xs">
                         {viewCustomer.address}
                       </p>
                     </div>
@@ -625,25 +636,25 @@ export default function CustomersPage() {
       </div>
 
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
         <Input
           type="search"
           placeholder="Ara..."
-          className="pl-10 bg-slate-900/30 border-slate-700 text-white focus:border-blue-500 h-10 rounded-xl"
+          className="pl-10 bg-muted/30 border-border focus:border-primary h-10 rounded-xl"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
-      <div className="glass-panel rounded-2xl overflow-hidden neon-border">
+      <div className="rounded-2xl overflow-hidden border border-border bg-card/50 backdrop-blur-sm shadow-md">
         <Table>
-          <TableHeader className="bg-slate-900/50">
-            <TableRow className="border-slate-800 hover:bg-transparent">
-              <TableHead className="text-slate-400">Firma</TableHead>
-              <TableHead className="text-slate-400">İletişim</TableHead>
-              <TableHead className="text-slate-400">Vergi</TableHead>
-              <TableHead className="text-slate-400">Konum</TableHead>
-              <TableHead className="text-slate-400 text-right">İşlem</TableHead>
+          <TableHeader className="bg-muted/50 dark:bg-slate-900/50">
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="text-muted-foreground">Firma</TableHead>
+              <TableHead className="text-muted-foreground">İletişim</TableHead>
+              <TableHead className="text-muted-foreground">Vergi</TableHead>
+              <TableHead className="text-muted-foreground">Konum</TableHead>
+              <TableHead className="text-muted-foreground text-right">İşlem</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -651,7 +662,7 @@ export default function CustomersPage() {
               <TableRow>
                 <TableCell
                   colSpan={5}
-                  className="text-center h-32 text-slate-500"
+                  className="text-center h-32 text-muted-foreground"
                 >
                   Yükleniyor...
                 </TableCell>
@@ -660,7 +671,7 @@ export default function CustomersPage() {
               <TableRow>
                 <TableCell
                   colSpan={5}
-                  className="text-center h-32 text-slate-500"
+                  className="text-center h-32 text-muted-foreground"
                 >
                   Kayıt yok.
                 </TableCell>
@@ -669,22 +680,22 @@ export default function CustomersPage() {
               filteredCustomers.map((c) => (
                 <TableRow
                   key={c.id}
-                  className="border-slate-800 hover:bg-blue-900/10 transition-colors cursor-pointer"
+                  className="border-border hover:bg-muted/50 dark:hover:bg-blue-900/10 transition-colors cursor-pointer"
                   onClick={() => handleRowClick(c)}
                 >
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="font-semibold text-slate-200 flex items-center gap-2">
-                        <Building2 className="w-4 h-4 text-slate-500" />
+                      <span className="font-semibold text-foreground flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-muted-foreground" />
                         {c.company_name}
                       </span>
-                      <span className="text-xs text-slate-500 ml-6">
+                      <span className="text-xs text-muted-foreground ml-6">
                         {c.contact_person}
                       </span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-col gap-1 text-sm text-slate-400">
+                    <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                       {c.email && (
                         <span className="flex items-center gap-2">
                           <Mail className="w-3 h-3" /> {c.email}
@@ -698,20 +709,20 @@ export default function CustomersPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm text-slate-400">
+                    <div className="text-sm text-muted-foreground">
                       {c.tax_office && (
-                        <div className="text-slate-300">{c.tax_office}</div>
+                        <div className="text-foreground/80">{c.tax_office}</div>
                       )}
                       {c.tax_number && (
-                        <div className="font-mono text-slate-500">
+                        <div className="font-mono text-muted-foreground">
                           {c.tax_number}
                         </div>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm text-slate-400 flex items-center gap-2">
-                      <MapPin className="w-3 h-3 text-slate-600" />{" "}
+                    <div className="text-sm text-muted-foreground flex items-center gap-2">
+                      <MapPin className="w-3 h-3" />{" "}
                       {c.district && c.city
                         ? `${c.district} / ${c.city}`
                         : c.address?.slice(0, 20) + "..."}
@@ -722,32 +733,38 @@ export default function CustomersPage() {
                       className="flex justify-end gap-2"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => openEditModal(e, c)}
-                        className="text-slate-500 hover:text-blue-400"
-                      >
-                        <FilePenLine className="h-4 w-4" />
-                      </Button>
-                      {/* ARŞİV BUTONU */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => handleArchive(e, c.id)}
-                        className="text-slate-500 hover:text-orange-400"
-                      >
-                        <Archive className="h-4 w-4" />
-                      </Button>
-                      {/* SİLME BUTONU */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => handleDelete(e, c.id)}
-                        className="text-slate-500 hover:text-red-400"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {/* Düzenleme butonu - sadece edit yetkisi olanlar */}
+                      {canEditData(userRole) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => openEditModal(e, c)}
+                          className="text-muted-foreground hover:text-primary"
+                        >
+                          <FilePenLine className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {/* Arşiv ve Silme - sadece admin/owner */}
+                      {canDeleteData(userRole) && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => handleArchive(e, c.id)}
+                            className="text-muted-foreground hover:text-orange-500"
+                          >
+                            <Archive className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => handleDelete(e, c.id)}
+                            className="text-muted-foreground hover:text-red-500"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

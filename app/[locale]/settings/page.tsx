@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState} from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "@/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   CreditCard,
   LogOut,
+  Loader2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -22,11 +23,12 @@ import { Separator } from "@/components/ui/separator";
 
 export default function SettingsPage() {
   const supabase = createClient();
-  const router = useRouter()
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
 
-  // Profil Verisi State'i
-  const [profile, setProfile] = useState({
+  // Profil Verisi State'i - varsayılan değerler
+  const defaultProfile = {
     full_name: "",
     title: "",
     email: "",
@@ -37,32 +39,67 @@ export default function SettingsPage() {
     city: "",
     default_valid_days: 15,
     default_currency: "TRY",
-  });
+  };
+
+  const [profile, setProfile] = useState(defaultProfile);
 
   // Verileri Çek
   useEffect(() => {
     const fetchProfile = async () => {
-      // Mevcut kullanıcıyı al (Şu an anonim olabilir ama ileride auth ekleyince çalışır)
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      setPageLoading(true);
+      
+      try {
+        // Mevcut kullanıcıyı al
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
 
-      // Geçici olarak: Eğer user yoksa bile ilk kaydı çekelim veya boş bırakalım.
-      // Auth eklenmediği için şimdilik tablodaki ilk satırı çekmeyi deneyelim veya mock yapalım.
-      // GERÇEK SENARYODA: .eq('id', user.id) kullanılır.
+        if (!user) {
+          console.log("[Settings] No user found");
+          setPageLoading(false);
+          return;
+        }
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*").eq('is_archived', false)
-        .single();
+        console.log("[Settings] Fetching profile for user:", user.id);
 
-      if (data) {
-        setProfile(data);
-      } else if (!error) {
-        // Hiç kayıt yoksa varsayılanları koy
-        // (Burada ilk kaydı oluşturmak için bir tetikleyici gerekebilir ama şimdilik manuel doldurtalım)
+        // Kullanıcının profilini çek
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+
+        if (error) {
+          console.error("[Settings] Profile fetch error:", error);
+          // Profil bulunamadıysa e-postayı auth'dan al
+          setProfile({
+            ...defaultProfile,
+            email: user.email || "",
+          });
+        } else if (data) {
+          console.log("[Settings] Profile loaded:", data);
+          // Mevcut profil verilerini state'e yükle
+          // Null değerleri varsayılanlarla değiştir
+          setProfile({
+            full_name: data.full_name || "",
+            title: data.title || "",
+            email: data.email || user.email || "",
+            phone: data.phone || "",
+            company_name: data.company_name || "",
+            website: data.website || "",
+            address: data.address || "",
+            city: data.city || "",
+            default_valid_days: data.default_valid_days || 15,
+            default_currency: data.default_currency || "TRY",
+          });
+        }
+      } catch (err) {
+        console.error("[Settings] Error:", err);
+        toast.error("Profil bilgileri yüklenemedi");
       }
+
+      setPageLoading(false);
     };
+
     fetchProfile();
   }, []);
 
@@ -109,26 +146,40 @@ export default function SettingsPage() {
     }
   };
 
+  // Sayfa yüklenirken loading göster
+  if (pageLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Profil bilgileri yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 p-8 max-w-5xl mx-auto">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white glow-text flex items-center gap-3">
-            <Settings className="h-8 w-8 text-blue-500 animate-spin-slow" />{" "}
+          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+            <Settings className="h-8 w-8 text-primary animate-spin-slow" />{" "}
             Sistem Ayarları
           </h1>
-          <p className="text-slate-400 mt-1">
+          <p className="text-muted-foreground mt-1">
             Global yapılandırma ve profil yönetimi.
           </p>
         </div>
         <Button
           onClick={handleUpdate}
-          disabled={loading}
-          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-[0_0_20px_rgba(79,70,229,0.3)] border-0 h-10 px-6 rounded-xl"
+          disabled={loading || pageLoading}
+          className="bg-linear-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground shadow-lg shadow-primary/25 border-0 h-10 px-6 rounded-xl"
         >
           {loading ? (
-            "Kaydediliyor..."
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Kaydediliyor...
+            </>
           ) : (
             <>
               <Save className="mr-2 h-4 w-4" /> Değişiklikleri Kaydet
@@ -139,22 +190,22 @@ export default function SettingsPage() {
 
       {/* TABS (SEKMELER) */}
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-slate-900/50 p-1 rounded-xl border border-slate-800">
+        <TabsList className="grid w-full grid-cols-3 bg-muted/50 dark:bg-slate-900/50 p-1 rounded-xl border border-border">
           <TabsTrigger
             value="profile"
-            className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-lg transition-all"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg transition-all"
           >
             <User className="w-4 h-4 mr-2" /> Profil & Kimlik
           </TabsTrigger>
           <TabsTrigger
             value="company"
-            className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-lg transition-all"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg transition-all"
           >
             <Building className="w-4 h-4 mr-2" /> Şirket & Marka
           </TabsTrigger>
           <TabsTrigger
             value="system"
-            className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-lg transition-all"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg transition-all"
           >
             <ShieldCheck className="w-4 h-4 mr-2" /> Sistem & Tercihler
           </TabsTrigger>
@@ -162,16 +213,23 @@ export default function SettingsPage() {
 
         {/* 1. SEKME: PROFİL */}
         <TabsContent value="profile" className="mt-6 space-y-6">
-          <div className="glass-panel p-8 rounded-2xl neon-border">
+          <div className="bg-card/50 backdrop-blur-sm border border-border p-8 rounded-2xl shadow-md">
             <div className="flex items-center gap-4 mb-6">
-              <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-2xl font-bold text-white shadow-lg">
-                Üİ
+              <div className="h-16 w-16 rounded-full bg-linear-to-br from-primary to-secondary flex items-center justify-center text-2xl font-bold text-white shadow-lg">
+                {profile.full_name
+                  ? profile.full_name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase()
+                  : "?"}
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white">
+                <h3 className="text-lg font-semibold text-foreground">
                   Kişisel Bilgiler
                 </h3>
-                <p className="text-slate-400 text-sm">
+                <p className="text-muted-foreground text-sm">
                   Tekliflerin altında görünecek imza bilgileri.
                 </p>
               </div>
@@ -179,9 +237,9 @@ export default function SettingsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label className="text-slate-300">Ad Soyad</Label>
+                <Label className="text-muted-foreground">Ad Soyad</Label>
                 <Input
-                  className="bg-slate-950 border-slate-700 text-white"
+                  className="bg-white dark:bg-slate-950 border-border text-foreground"
                   value={profile.full_name}
                   onChange={(e) =>
                     setProfile({ ...profile, full_name: e.target.value })
@@ -190,9 +248,9 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-300">Unvan</Label>
+                <Label className="text-muted-foreground">Unvan</Label>
                 <Input
-                  className="bg-slate-950 border-slate-700 text-white"
+                  className="bg-white dark:bg-slate-950 border-border text-foreground"
                   value={profile.title}
                   onChange={(e) =>
                     setProfile({ ...profile, title: e.target.value })
@@ -201,9 +259,9 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-300">E-Posta</Label>
+                <Label className="text-muted-foreground">E-Posta</Label>
                 <Input
-                  className="bg-slate-950 border-slate-700 text-white"
+                  className="bg-white dark:bg-slate-950 border-border text-foreground"
                   value={profile.email}
                   onChange={(e) =>
                     setProfile({ ...profile, email: e.target.value })
@@ -212,9 +270,9 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-300">Telefon</Label>
+                <Label className="text-muted-foreground">Telefon</Label>
                 <Input
-                  className="bg-slate-950 border-slate-700 text-white"
+                  className="bg-white dark:bg-slate-950 border-border text-foreground"
                   value={profile.phone}
                   onChange={(e) =>
                     setProfile({ ...profile, phone: e.target.value })
@@ -228,16 +286,16 @@ export default function SettingsPage() {
 
         {/* 2. SEKME: ŞİRKET */}
         <TabsContent value="company" className="mt-6 space-y-6">
-          <div className="glass-panel p-8 rounded-2xl neon-border">
-            <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
-              <Building className="text-purple-500" /> Marka Bilgileri
+          <div className="bg-card/50 backdrop-blur-sm border border-border p-8 rounded-2xl shadow-md">
+            <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
+              <Building className="text-secondary" /> Marka Bilgileri
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label className="text-slate-300">Şirket / Marka Adı</Label>
+                <Label className="text-muted-foreground">Şirket / Marka Adı</Label>
                 <Input
-                  className="bg-slate-950 border-slate-700 text-white"
+                  className="bg-white dark:bg-slate-950 border-border text-foreground"
                   value={profile.company_name}
                   onChange={(e) =>
                     setProfile({ ...profile, company_name: e.target.value })
@@ -246,9 +304,9 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-300">Web Sitesi</Label>
+                <Label className="text-muted-foreground">Web Sitesi</Label>
                 <Input
-                  className="bg-slate-950 border-slate-700 text-white"
+                  className="bg-white dark:bg-slate-950 border-border text-foreground"
                   value={profile.website}
                   onChange={(e) =>
                     setProfile({ ...profile, website: e.target.value })
@@ -257,9 +315,9 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="md:col-span-2 space-y-2">
-                <Label className="text-slate-300">Adres</Label>
+                <Label className="text-muted-foreground">Adres</Label>
                 <Input
-                  className="bg-slate-950 border-slate-700 text-white"
+                  className="bg-white dark:bg-slate-950 border-border text-foreground"
                   value={profile.address}
                   onChange={(e) =>
                     setProfile({ ...profile, address: e.target.value })
@@ -268,9 +326,9 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-300">Şehir</Label>
+                <Label className="text-muted-foreground">Şehir</Label>
                 <Input
-                  className="bg-slate-950 border-slate-700 text-white"
+                  className="bg-white dark:bg-slate-950 border-border text-foreground"
                   value={profile.city}
                   onChange={(e) =>
                     setProfile({ ...profile, city: e.target.value })
@@ -284,19 +342,19 @@ export default function SettingsPage() {
 
         {/* 3. SEKME: SİSTEM */}
         <TabsContent value="system" className="mt-6 space-y-6">
-          <div className="glass-panel p-8 rounded-2xl neon-border">
-            <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+          <div className="bg-card/50 backdrop-blur-sm border border-border p-8 rounded-2xl shadow-md">
+            <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
               <CreditCard className="text-green-500" /> Varsayılanlar
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label className="text-slate-300">
+                <Label className="text-muted-foreground">
                   Teklif Geçerlilik Süresi (Gün)
                 </Label>
                 <Input
                   type="number"
-                  className="bg-slate-950 border-slate-700 text-white"
+                  className="bg-white dark:bg-slate-950 border-border text-foreground"
                   value={profile.default_valid_days}
                   onChange={(e) =>
                     setProfile({
@@ -305,35 +363,35 @@ export default function SettingsPage() {
                     })
                   }
                 />
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   Teklif oluşturulduğunda otomatik eklenecek süre.
                 </p>
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-300">Para Birimi</Label>
+                <Label className="text-muted-foreground">Para Birimi</Label>
                 <Input
-                  className="bg-slate-950 border-slate-700 text-white"
+                  className="bg-muted/30 dark:bg-slate-950 border-border text-muted-foreground"
                   value={profile.default_currency}
                   disabled
                 />
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   Şu an sadece TRY desteklenmektedir.
                 </p>
               </div>
             </div>
 
-            <Separator className="my-8 bg-slate-800" />
+            <Separator className="my-8 bg-border" />
 
            <div className="flex items-center justify-between">
                 <div>
-                    <h4 className="text-red-400 font-semibold">Oturumu Kapat</h4>
-                    <p className="text-slate-500 text-sm">Sistemden güvenli çıkış yap.</p>
+                    <h4 className="text-red-600 dark:text-red-400 font-semibold">Oturumu Kapat</h4>
+                    <p className="text-muted-foreground text-sm">Sistemden güvenli çıkış yap.</p>
                 </div>
                 
                 <Button 
                   variant="destructive" 
-                  onClick={handleLogout} // <--- BURASI
-                  className="bg-red-900/20 text-red-400 hover:bg-red-900/40 hover:text-red-200 border border-red-900/50"
+                  onClick={handleLogout}
+                  className="bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/40 hover:text-red-700 dark:hover:text-red-200 border border-red-200 dark:border-red-900/50"
                 >
                     <LogOut className="w-4 h-4 mr-2" /> Çıkış Yap
                 </Button>

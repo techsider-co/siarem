@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { useOrganization } from "@/contexts/OrganizationContext";
 import { Customer } from "@/types";
 import { toast } from "sonner";
 import { analyzeWebsite } from "../ai-actions"; // <--- AI Server Action
@@ -71,6 +72,9 @@ export default function CreateProposalPage() {
   const supabase = createClient();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Multi-tenancy için organizasyon bilgisi
+  const { currentOrg } = useOrganization();
 
   // --- STATE'LER ---
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -356,9 +360,14 @@ export default function CreateProposalPage() {
       toast.error("Müşteri seçin.");
       return;
     }
+    if (!currentOrg) {
+      toast.error("Organizasyon bulunamadı.");
+      return;
+    }
     const contentPayload = { services, timeline, analysis, techStack };
     const { error } = await supabase.from("proposals").insert([
       {
+        organization_id: currentOrg.id, // Multi-tenancy için eklendi
         customer_id: selectedCustomer.id,
         proposal_no: proposalNo,
         valid_until: validUntil,
@@ -378,37 +387,38 @@ export default function CreateProposalPage() {
 
   return (
     <div className="space-y-6 p-8 pb-20">
-      <div className="flex justify-between items-center bg-slate-950 p-4 rounded-xl border border-slate-800 sticky top-4 z-50 shadow-2xl">
+      {/* STICKY HEADER */}
+      <div className="flex justify-between items-center bg-card/80 dark:bg-slate-950/80 p-4 rounded-xl border border-border sticky top-4 z-50 shadow-lg backdrop-blur-md">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => router.back()}
-            className="text-slate-400 hover:text-white"
+            className="text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-xl font-bold text-white glow-text">
+            <h1 className="text-xl font-bold text-foreground">
               Teklif Sihirbazı v2.4 (AI)
             </h1>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-muted-foreground">
               Yapay zeka destekli içerik üretimi.
             </p>
           </div>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right hidden md:block">
-            <div className="text-xs text-slate-500 uppercase tracking-widest">
+            <div className="text-xs text-muted-foreground uppercase tracking-widest">
               Toplam Tutar
             </div>
-            <div className="text-xl font-bold text-green-400">
+            <div className="text-xl font-bold text-green-600 dark:text-green-400">
               {grandTotal.toLocaleString()} ₺
             </div>
           </div>
           <Button
             onClick={handleSave}
-            className="bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)]"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25"
           >
             <Save className="mr-2 h-4 w-4" /> Kaydet
           </Button>
@@ -416,34 +426,34 @@ export default function CreateProposalPage() {
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="bg-slate-900 border border-slate-800 p-1 rounded-xl grid grid-cols-5 h-auto">
+        <TabsList className="bg-muted/50 dark:bg-slate-900 border border-border p-1 rounded-xl grid grid-cols-5 h-auto">
           <TabsTrigger
             value="general"
-            className="data-[state=active]:bg-blue-600 data-[state=active]:text-white py-3 rounded-lg"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-3 rounded-lg"
           >
             <Rocket className="w-4 h-4 mr-2" /> Genel
           </TabsTrigger>
           <TabsTrigger
             value="analysis"
-            className="data-[state=active]:bg-blue-600 data-[state=active]:text-white py-3 rounded-lg"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-3 rounded-lg"
           >
             <AlertTriangle className="w-4 h-4 mr-2" /> Analiz
           </TabsTrigger>
           <TabsTrigger
             value="tech"
-            className="data-[state=active]:bg-blue-600 data-[state=active]:text-white py-3 rounded-lg"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-3 rounded-lg"
           >
             <Cpu className="w-4 h-4 mr-2" /> Teknoloji
           </TabsTrigger>
           <TabsTrigger
             value="timeline"
-            className="data-[state=active]:bg-blue-600 data-[state=active]:text-white py-3 rounded-lg"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-3 rounded-lg"
           >
             <Calendar className="w-4 h-4 mr-2" /> Zaman
           </TabsTrigger>
           <TabsTrigger
             value="services"
-            className="data-[state=active]:bg-blue-600 data-[state=active]:text-white py-3 rounded-lg"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-3 rounded-lg"
           >
             <CreditCard className="w-4 h-4 mr-2" /> Hizmet
           </TabsTrigger>
@@ -451,18 +461,18 @@ export default function CreateProposalPage() {
 
         {/* 1. GENEL */}
         <TabsContent value="general" className="space-y-6">
-          <Card className="bg-slate-950 border-slate-800">
+          <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-white">Müşteri ve Marka</CardTitle>
+              <CardTitle className="text-foreground">Müşteri ve Marka</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label className="text-slate-300">Müşteri</Label>
+                <Label className="text-muted-foreground">Müşteri</Label>
                 <Select onValueChange={handleCustomerSelect}>
-                  <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                  <SelectTrigger className="bg-muted/50 border-border text-foreground">
                     <SelectValue placeholder="Seçiniz..." />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-slate-700 text-white">
+                  <SelectContent className="bg-popover border-border text-popover-foreground">
                     {customers.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.company_name}
@@ -472,11 +482,11 @@ export default function CreateProposalPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-300">Kurum Logosu</Label>
+                <Label className="text-muted-foreground">Kurum Logosu</Label>
                 {selectedCustomer ? (
                   <div className="flex items-center gap-4">
                     {selectedCustomer.logo_url ? (
-                      <div className="flex items-center gap-4 bg-slate-900 p-2 rounded-lg border border-slate-700">
+                      <div className="flex items-center gap-4 bg-muted/50 p-2 rounded-lg border border-border">
                         <img
                           src={selectedCustomer.logo_url}
                           alt="Logo"
@@ -486,7 +496,7 @@ export default function CreateProposalPage() {
                           variant="ghost"
                           size="sm"
                           onClick={removeLogo}
-                          className="text-red-400 hover:bg-red-900/20"
+                          className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900/20"
                         >
                           <X className="w-4 h-4" />
                         </Button>
@@ -504,7 +514,7 @@ export default function CreateProposalPage() {
                           variant="outline"
                           disabled={uploadingLogo}
                           onClick={() => fileInputRef.current?.click()}
-                          className="w-full border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-blue-500 hover:bg-blue-900/10"
+                          className="w-full border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary hover:bg-primary/5"
                         >
                           {uploadingLogo ? (
                             "Yükleniyor..."
@@ -518,32 +528,32 @@ export default function CreateProposalPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="text-sm text-slate-500 italic p-2">
+                  <div className="text-sm text-muted-foreground italic p-2">
                     Önce müşteri seçiniz.
                   </div>
                 )}
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-300">Geçerlilik Tarihi</Label>
+                <Label className="text-muted-foreground">Geçerlilik Tarihi</Label>
                 <div className="relative">
                   <Input
                     type="date"
                     value={validUntil}
                     readOnly
-                    className="bg-slate-950 border-slate-800 text-slate-400 cursor-not-allowed"
+                    className="bg-muted/30 border-border text-muted-foreground cursor-not-allowed"
                   />
-                  <Lock className="absolute right-10 top-2.5 w-4 h-4 text-slate-600" />
+                  <Lock className="absolute right-10 top-2.5 w-4 h-4 text-muted-foreground/50" />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-300">Teklif No</Label>
+                <Label className="text-muted-foreground">Teklif No</Label>
                 <div className="relative">
                   <Input
                     value={proposalNo}
                     readOnly
-                    className="bg-slate-950 border-slate-800 text-slate-400 pl-10 cursor-not-allowed"
+                    className="bg-muted/30 border-border text-muted-foreground pl-10 cursor-not-allowed"
                   />
-                  <Lock className="absolute left-3 top-2.5 w-4 h-4 text-slate-600" />
+                  <Lock className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground/50" />
                 </div>
               </div>
             </CardContent>
@@ -553,22 +563,22 @@ export default function CreateProposalPage() {
         {/* 2. ANALİZ (AI ENTEGRASYONU BURADA) */}
         <TabsContent value="analysis" className="space-y-6">
           {/* --- AI KUTUSU --- */}
-          <div className="bg-slate-900/50 p-5 rounded-xl border border-purple-500/30 shadow-[0_0_20px_rgba(168,85,247,0.1)]">
+          <div className="bg-purple-50 dark:bg-slate-900/50 p-5 rounded-xl border border-purple-200 dark:border-purple-500/30 shadow-sm">
             <div className="flex flex-col md:flex-row gap-4 items-end">
               <div className="flex-1 w-full">
-                <Label className="text-purple-400 font-bold flex items-center gap-2 mb-2">
+                <Label className="text-purple-600 dark:text-purple-400 font-bold flex items-center gap-2 mb-2">
                   <Sparkles className="w-4 h-4" /> AI Otomatik Analiz
                 </Label>
                 <div className="relative">
-                  <Globe className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+                  <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="https://mimarindesign.com (Mevcut site varsa giriniz)"
-                    className="bg-slate-950 border-slate-700 text-white pl-10"
+                    className="bg-white dark:bg-slate-950 border-border text-foreground pl-10"
                     value={targetUrl}
                     onChange={(e) => setTargetUrl(e.target.value)}
                   />
                 </div>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Mevcut siteyi tarar, eksikleri bulur ve kutuları otomatik
                   doldurur.
                 </p>
@@ -576,7 +586,7 @@ export default function CreateProposalPage() {
               <Button
                 onClick={handleAIAnalyze}
                 disabled={isAnalyzing}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white border-0 shadow-lg"
+                className="bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white border-0 shadow-lg"
               >
                 {isAnalyzing ? (
                   <>
@@ -593,16 +603,16 @@ export default function CreateProposalPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="bg-slate-950 border-red-900/30">
+            <Card className="bg-card border-red-200 dark:border-red-900/30">
               <CardHeader className="flex flex-row justify-between items-center">
-                <CardTitle className="text-red-400 flex items-center gap-2">
+                <CardTitle className="text-red-600 dark:text-red-400 flex items-center gap-2">
                   <AlertTriangle className="w-5 h-5" /> Sorunlar (Kırmızı)
                 </CardTitle>
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={() => addAnalysisItem("problems")}
-                  className="text-slate-400 hover:text-white"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   <Plus className="w-4 h-4" />
                 </Button>
@@ -611,7 +621,7 @@ export default function CreateProposalPage() {
                 {analysis.problems.map((prob, i) => (
                   <div
                     key={i}
-                    className="group relative grid gap-2 p-3 border border-red-900/20 rounded bg-red-950/10"
+                    className="group relative grid gap-2 p-3 border border-red-200 dark:border-red-900/20 rounded bg-red-50 dark:bg-red-950/10"
                   >
                     <div className="absolute -right-2 -top-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
@@ -623,7 +633,7 @@ export default function CreateProposalPage() {
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
-                    <Label className="text-xs text-red-300/70 uppercase">
+                    <Label className="text-xs text-red-600/70 dark:text-red-300/70 uppercase">
                       Başlık
                     </Label>
                     <Input
@@ -636,9 +646,9 @@ export default function CreateProposalPage() {
                           e.target.value
                         )
                       }
-                      className="bg-slate-900 border-slate-800 text-white h-8"
+                      className="bg-white dark:bg-slate-900 border-border text-foreground h-8"
                     />
-                    <Label className="text-xs text-red-300/70 uppercase">
+                    <Label className="text-xs text-red-600/70 dark:text-red-300/70 uppercase">
                       Açıklama
                     </Label>
                     <Textarea
@@ -651,22 +661,22 @@ export default function CreateProposalPage() {
                           e.target.value
                         )
                       }
-                      className="bg-slate-900 border-slate-800 text-slate-300 h-16 resize-none"
+                      className="bg-white dark:bg-slate-900 border-border text-muted-foreground h-16 resize-none"
                     />
                   </div>
                 ))}
               </CardContent>
             </Card>
-            <Card className="bg-slate-950 border-green-900/30">
+            <Card className="bg-card border-green-200 dark:border-green-900/30">
               <CardHeader className="flex flex-row justify-between items-center">
-                <CardTitle className="text-green-400 flex items-center gap-2">
+                <CardTitle className="text-green-600 dark:text-green-400 flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5" /> Çözümler (Yeşil)
                 </CardTitle>
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={() => addAnalysisItem("solutions")}
-                  className="text-slate-400 hover:text-white"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   <Plus className="w-4 h-4" />
                 </Button>
@@ -675,7 +685,7 @@ export default function CreateProposalPage() {
                 {analysis.solutions.map((sol, i) => (
                   <div
                     key={i}
-                    className="group relative grid gap-2 p-3 border border-green-900/20 rounded bg-green-950/10"
+                    className="group relative grid gap-2 p-3 border border-green-200 dark:border-green-900/20 rounded bg-green-50 dark:bg-green-950/10"
                   >
                     <div className="absolute -right-2 -top-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
@@ -687,7 +697,7 @@ export default function CreateProposalPage() {
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
-                    <Label className="text-xs text-green-300/70 uppercase">
+                    <Label className="text-xs text-green-600/70 dark:text-green-300/70 uppercase">
                       Başlık
                     </Label>
                     <Input
@@ -700,9 +710,9 @@ export default function CreateProposalPage() {
                           e.target.value
                         )
                       }
-                      className="bg-slate-900 border-slate-800 text-white h-8"
+                      className="bg-white dark:bg-slate-900 border-border text-foreground h-8"
                     />
-                    <Label className="text-xs text-green-300/70 uppercase">
+                    <Label className="text-xs text-green-600/70 dark:text-green-300/70 uppercase">
                       Açıklama
                     </Label>
                     <Textarea
@@ -715,23 +725,23 @@ export default function CreateProposalPage() {
                           e.target.value
                         )
                       }
-                      className="bg-slate-900 border-slate-800 text-slate-300 h-16 resize-none"
+                      className="bg-white dark:bg-slate-900 border-border text-muted-foreground h-16 resize-none"
                     />
                   </div>
                 ))}
               </CardContent>
             </Card>
           </div>
-          <Card className="bg-slate-950 border-slate-800">
+          <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-white">Performans Skorları</CardTitle>
+              <CardTitle className="text-foreground">Performans Skorları</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-4 gap-4">
               <div className="space-y-2">
-                <Label className="text-slate-400">Mobil</Label>
+                <Label className="text-muted-foreground">Mobil</Label>
                 <Input
                   type="number"
-                  className="bg-slate-900 border-slate-700 text-white"
+                  className="bg-muted/50 border-border text-foreground"
                   value={analysis.scores.mobile}
                   onChange={(e) =>
                     setAnalysis({
@@ -745,10 +755,10 @@ export default function CreateProposalPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-400">Erişim</Label>
+                <Label className="text-muted-foreground">Erişim</Label>
                 <Input
                   type="number"
-                  className="bg-slate-900 border-slate-700 text-white"
+                  className="bg-muted/50 border-border text-foreground"
                   value={analysis.scores.access}
                   onChange={(e) =>
                     setAnalysis({
@@ -762,10 +772,10 @@ export default function CreateProposalPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-400">SEO</Label>
+                <Label className="text-muted-foreground">SEO</Label>
                 <Input
                   type="number"
-                  className="bg-slate-900 border-slate-700 text-white"
+                  className="bg-muted/50 border-border text-foreground"
                   value={analysis.scores.seo}
                   onChange={(e) =>
                     setAnalysis({
@@ -779,10 +789,10 @@ export default function CreateProposalPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-green-400">HEDEF</Label>
+                <Label className="text-green-600 dark:text-green-400">HEDEF</Label>
                 <Input
                   type="number"
-                  className="bg-slate-900 border-green-700/50 text-green-400 font-bold"
+                  className="bg-green-50 dark:bg-slate-900 border-green-200 dark:border-green-700/50 text-green-600 dark:text-green-400 font-bold"
                   value={analysis.scores.target}
                   onChange={(e) =>
                     setAnalysis({
@@ -801,16 +811,16 @@ export default function CreateProposalPage() {
 
         {/* 3. TEKNOLOJİ */}
         <TabsContent value="tech" className="space-y-6">
-          <Card className="bg-slate-950 border-slate-800">
+          <Card className="bg-card border-border">
             <CardHeader className="flex flex-row justify-between items-center">
-              <CardTitle className="text-white flex items-center gap-2">
-                <Cpu className="w-5 h-5 text-blue-400" /> Teknoloji Yığını
+              <CardTitle className="text-foreground flex items-center gap-2">
+                <Cpu className="w-5 h-5 text-primary" /> Teknoloji Yığını
               </CardTitle>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={addTech}
-                className="border-slate-700 hover:bg-slate-800 text-white"
+                className="border-border hover:bg-muted text-foreground"
               >
                 <Plus className="w-4 h-4 mr-2" /> Ekle
               </Button>
@@ -819,24 +829,24 @@ export default function CreateProposalPage() {
               {techStack.map((item, i) => (
                 <div
                   key={i}
-                  className="group relative grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border border-slate-800 rounded-lg bg-slate-900/30"
+                  className="group relative grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border border-border rounded-lg bg-muted/30"
                 >
                   <div className="md:col-span-4">
-                    <Label className="text-xs text-blue-400 uppercase">
+                    <Label className="text-xs text-primary uppercase">
                       Teknoloji
                     </Label>
                     <Input
-                      className="bg-slate-950 border-slate-700 text-white mt-1"
+                      className="bg-white dark:bg-slate-950 border-border text-foreground mt-1"
                       value={item.title}
                       onChange={(e) => updateTech(i, "title", e.target.value)}
                     />
                   </div>
                   <div className="md:col-span-8">
-                    <Label className="text-xs text-slate-400 uppercase">
+                    <Label className="text-xs text-muted-foreground uppercase">
                       Açıklama
                     </Label>
                     <Input
-                      className="bg-slate-950 border-slate-700 text-white mt-1"
+                      className="bg-white dark:bg-slate-950 border-border text-foreground mt-1"
                       value={item.description}
                       onChange={(e) =>
                         updateTech(i, "description", e.target.value)
@@ -861,14 +871,14 @@ export default function CreateProposalPage() {
 
         {/* 4. ZAMAN */}
         <TabsContent value="timeline" className="space-y-6">
-          <Card className="bg-slate-950 border-slate-800">
+          <Card className="bg-card border-border">
             <CardHeader className="flex flex-row justify-between items-center">
-              <CardTitle className="text-white">Proje Takvimi</CardTitle>
+              <CardTitle className="text-foreground">Proje Takvimi</CardTitle>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={addTimeline}
-                className="border-slate-700 hover:bg-slate-800 text-white"
+                className="border-border hover:bg-muted text-foreground"
               >
                 <Plus className="w-4 h-4 mr-2" /> Ekle
               </Button>
@@ -877,14 +887,14 @@ export default function CreateProposalPage() {
               {timeline.map((item, i) => (
                 <div
                   key={i}
-                  className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border border-slate-800 rounded-lg bg-slate-900/30"
+                  className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border border-border rounded-lg bg-muted/30"
                 >
                   <div className="md:col-span-3">
-                    <Label className="text-xs text-blue-400 uppercase">
+                    <Label className="text-xs text-primary uppercase">
                       Faz / Tarih
                     </Label>
                     <Input
-                      className="bg-slate-950 border-slate-700 text-white mt-1"
+                      className="bg-white dark:bg-slate-950 border-border text-foreground mt-1"
                       value={item.phase}
                       onChange={(e) =>
                         updateTimeline(i, "phase", e.target.value)
@@ -892,11 +902,11 @@ export default function CreateProposalPage() {
                     />
                   </div>
                   <div className="md:col-span-3">
-                    <Label className="text-xs text-slate-400 uppercase">
+                    <Label className="text-xs text-muted-foreground uppercase">
                       Başlık
                     </Label>
                     <Input
-                      className="bg-slate-950 border-slate-700 text-white mt-1"
+                      className="bg-white dark:bg-slate-950 border-border text-foreground mt-1"
                       value={item.title}
                       onChange={(e) =>
                         updateTimeline(i, "title", e.target.value)
@@ -904,11 +914,11 @@ export default function CreateProposalPage() {
                     />
                   </div>
                   <div className="md:col-span-5">
-                    <Label className="text-xs text-slate-400 uppercase">
+                    <Label className="text-xs text-muted-foreground uppercase">
                       Açıklama
                     </Label>
                     <Input
-                      className="bg-slate-950 border-slate-700 text-white mt-1"
+                      className="bg-white dark:bg-slate-950 border-border text-foreground mt-1"
                       value={item.description}
                       onChange={(e) =>
                         updateTimeline(i, "description", e.target.value)
@@ -920,7 +930,7 @@ export default function CreateProposalPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => removeTimeline(i)}
-                      className="text-red-500 hover:bg-red-900/20"
+                      className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900/20"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -933,14 +943,14 @@ export default function CreateProposalPage() {
 
         {/* 5. HİZMETLER */}
         <TabsContent value="services" className="space-y-6">
-          <Card className="bg-slate-950 border-slate-800">
+          <Card className="bg-card border-border">
             <CardHeader className="flex flex-row justify-between items-center">
-              <CardTitle className="text-white">Hizmet Kalemleri</CardTitle>
+              <CardTitle className="text-foreground">Hizmet Kalemleri</CardTitle>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={addService}
-                className="border-slate-700 hover:bg-slate-800 text-white"
+                className="border-border hover:bg-muted text-foreground"
               >
                 <Plus className="w-4 h-4 mr-2" /> Ekle
               </Button>
@@ -949,14 +959,14 @@ export default function CreateProposalPage() {
               {services.map((item, i) => (
                 <div
                   key={i}
-                  className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border border-slate-800 rounded-lg bg-slate-900/30 relative group"
+                  className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border border-border rounded-lg bg-muted/30 relative group"
                 >
                   <div className="md:col-span-4">
-                    <Label className="text-xs text-slate-400 uppercase">
+                    <Label className="text-xs text-muted-foreground uppercase">
                       Başlık
                     </Label>
                     <Input
-                      className="bg-slate-950 border-slate-700 text-white mt-1"
+                      className="bg-white dark:bg-slate-950 border-border text-foreground mt-1"
                       value={item.title}
                       onChange={(e) =>
                         updateService(i, "title", e.target.value)
@@ -964,11 +974,11 @@ export default function CreateProposalPage() {
                     />
                   </div>
                   <div className="md:col-span-6">
-                    <Label className="text-xs text-slate-400 uppercase">
+                    <Label className="text-xs text-muted-foreground uppercase">
                       Açıklama
                     </Label>
                     <Input
-                      className="bg-slate-950 border-slate-700 text-white mt-1"
+                      className="bg-white dark:bg-slate-950 border-border text-foreground mt-1"
                       value={item.description}
                       onChange={(e) =>
                         updateService(i, "description", e.target.value)
@@ -976,12 +986,12 @@ export default function CreateProposalPage() {
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <Label className="text-xs text-green-400 uppercase">
+                    <Label className="text-xs text-green-600 dark:text-green-400 uppercase">
                       Fiyat (₺)
                     </Label>
                     <Input
                       type="number"
-                      className="bg-slate-950 border-slate-700 text-white mt-1 text-right font-mono"
+                      className="bg-white dark:bg-slate-950 border-border text-foreground mt-1 text-right font-mono"
                       value={item.price}
                       onChange={(e) =>
                         updateService(i, "price", Number(e.target.value))
@@ -992,28 +1002,28 @@ export default function CreateProposalPage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => removeService(i)}
-                    className="absolute -top-3 -right-3 bg-red-900 text-white rounded-full w-6 h-6 hover:bg-red-700 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full w-6 h-6 hover:bg-red-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     <Trash2 className="w-3 h-3" />
                   </Button>
                 </div>
               ))}
-              <Separator className="bg-slate-800 my-4" />
+              <Separator className="bg-border my-4" />
               <div className="flex justify-end items-center gap-4">
                 <div className="text-right">
-                  <Label className="text-slate-400">İndirim Tutarı</Label>
+                  <Label className="text-muted-foreground">İndirim Tutarı</Label>
                   <Input
                     type="number"
-                    className="bg-slate-900 border-slate-700 text-white w-32 text-right mt-1"
+                    className="bg-muted/50 border-border text-foreground w-32 text-right mt-1"
                     value={discount}
                     onChange={(e) => setDiscount(Number(e.target.value))}
                   />
                 </div>
                 <div className="text-right">
-                  <div className="text-sm text-slate-500 uppercase">
+                  <div className="text-sm text-muted-foreground uppercase">
                     Toplam Tutar
                   </div>
-                  <div className="text-3xl font-bold text-white glow-text">
+                  <div className="text-3xl font-bold text-foreground">
                     {grandTotal.toLocaleString()} ₺
                   </div>
                 </div>

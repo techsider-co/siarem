@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Link, useRouter } from "@/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { useOrganization, canEditData, canDeleteData } from "@/contexts/OrganizationContext";
 import { toast } from "sonner";
 import { DEFAULT_CONTRACT_CLAUSES } from "@/lib/constants";
 import {
@@ -44,6 +45,7 @@ interface Proposal {
 export default function ProposalsListPage() {
   const supabase = createClient();
   const router = useRouter();
+  const { currentOrg, userRole } = useOrganization();
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -102,7 +104,7 @@ export default function ProposalsListPage() {
     }
 
     // OTOMATİK FİNANS KAYDI (Tamamlandıysa)
-    if (newStatus === 'completed') {
+    if (newStatus === 'completed' && currentOrg) {
         const companyName = proposal.customers?.company_name || "Müşteri";
         
         // Yerel Tarih
@@ -110,6 +112,7 @@ export default function ProposalsListPage() {
         const formattedDate = `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, '0')}-${String(localDate.getDate()).padStart(2, '0')}`;
 
         const { error: transError } = await supabase.from("transactions").insert([{
+            organization_id: currentOrg.id,
             description: `${companyName} - Proje Geliri (Oto)`,
             amount: proposal.total_amount,
             type: "income",
@@ -119,7 +122,7 @@ export default function ProposalsListPage() {
         }]);
 
         if (!transError) toast.success("✅ Tutar Kasaya 'GELİR' olarak eklendi!");
-    } else {
+    } else if (newStatus !== 'completed') {
         toast.success(`Durum güncellendi: ${newStatus.toUpperCase()}`);
     }
 
@@ -133,7 +136,7 @@ export default function ProposalsListPage() {
 
   // --- SÖZLEŞME OLUŞTURUCU (AUTO) ---
   const createAutoContract = async () => {
-      if (!currentActionProposal) return;
+      if (!currentActionProposal || !currentOrg) return;
 
       // 1. Durumu Güncelle
       await performStatusUpdate(currentActionProposal, 'accepted');
@@ -141,6 +144,7 @@ export default function ProposalsListPage() {
       // 2. Sözleşmeyi Oluştur
       const contractNo = `CNT-${currentActionProposal.proposal_no}`;
       const { error } = await supabase.from("contracts").insert([{
+        organization_id: currentOrg.id,
         proposal_id: currentActionProposal.id,
         customer_id: currentActionProposal.customer_id,
         contract_no: contractNo,
@@ -161,7 +165,7 @@ export default function ProposalsListPage() {
       // Önce durumu güncelle
       await performStatusUpdate(currentActionProposal, 'accepted');
       // Sonra editöre git
-      router.push(`/contracts/create?proposalId=${currentActionProposal.id}`);
+      router.push(`/contracts/create?proposalId=${currentActionProposal.id}` as any);
   };
 
   // --- SADECE DURUM GÜNCELLE (Sözleşmesiz) ---
@@ -199,14 +203,14 @@ export default function ProposalsListPage() {
     }
   };
 
-  // Badge Rengi
+  // Badge Rengi - Light tema uyumlu
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'completed': return <Badge className="bg-green-500/20 text-green-400 border border-green-500/20 hover:bg-green-500/30">● Tamamlandı 💸</Badge>;
-      case 'accepted': return <Badge className="bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/30">◐ Onaylandı ⏳</Badge>;
-      case 'sent': return <Badge className="bg-blue-500/20 text-blue-400 border border-blue-500/20 hover:bg-blue-500/30">○ Gönderildi ✉️</Badge>;
-      case 'rejected': return <Badge className="bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20">Reddedildi</Badge>;
-      default: return <Badge className="bg-slate-700/50 text-slate-400 border border-slate-600 hover:bg-slate-700">Taslak 📝</Badge>;
+      case 'completed': return <Badge className="bg-green-100 text-green-700 border border-green-300 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30">● Tamamlandı 💸</Badge>;
+      case 'accepted': return <Badge className="bg-indigo-100 text-indigo-700 border border-indigo-300 dark:bg-indigo-500/20 dark:text-indigo-400 dark:border-indigo-500/30">◐ Onaylandı ⏳</Badge>;
+      case 'sent': return <Badge className="bg-blue-100 text-blue-700 border border-blue-300 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/30">○ Gönderildi ✉️</Badge>;
+      case 'rejected': return <Badge className="bg-red-100 text-red-700 border border-red-300 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30">✕ Reddedildi</Badge>;
+      default: return <Badge className="bg-muted text-muted-foreground border border-border dark:bg-slate-700/50 dark:text-slate-400 dark:border-slate-600">○ Taslak 📝</Badge>;
     }
   };
 
@@ -223,63 +227,71 @@ export default function ProposalsListPage() {
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white glow-text flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
             <FileText className="h-8 w-8 text-purple-500" /> Teklif Yönetimi
           </h1>
-          <p className="text-slate-400 mt-1">
+          <p className="text-muted-foreground mt-1">
             Hazırladığın tüm tekliflerin durumunu buradan yönet.
           </p>
         </div>
-        <Link href="/proposals/create">
-          <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.4)] border-0">
-            <Plus className="mr-2 h-4 w-4" /> Yeni Teklif Oluştur
-          </Button>
-        </Link>
+        {canEditData(userRole) && (
+          <Link href="/proposals/create">
+            <Button className="bg-linear-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground shadow-lg shadow-primary/25 border-0 rounded-xl px-6 py-2 h-auto font-semibold">
+              <Plus className="mr-2 h-4 w-4" /> Yeni Teklif Oluştur
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* FİLTRE */}
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
-        <Input type="search" placeholder="Teklif No veya Firma ara..." className="pl-10 bg-slate-900/30 border-slate-700 text-white focus:border-blue-500 h-10 rounded-xl" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <Input 
+          type="search" 
+          placeholder="Teklif No veya Firma ara..." 
+          className="pl-10 bg-muted/50 border-border text-foreground focus:border-primary h-10 rounded-xl" 
+          value={searchTerm} 
+          onChange={(e) => setSearchTerm(e.target.value)} 
+        />
       </div>
 
       {/* TABLO */}
-      <div className="glass-panel rounded-2xl overflow-hidden neon-border">
+      <div className="rounded-2xl border border-border bg-card/50 backdrop-blur-sm overflow-hidden shadow-md">
         <Table>
-          <TableHeader className="bg-slate-900/50">
-            <TableRow className="border-slate-800 hover:bg-transparent">
-              <TableHead className="text-slate-400">Teklif No</TableHead>
-              <TableHead className="text-slate-400">Müşteri</TableHead>
-              <TableHead className="text-slate-400">Tutar</TableHead>
-              <TableHead className="text-slate-400">Durum</TableHead>
-              <TableHead className="text-slate-400">Tarih</TableHead>
-              <TableHead className="text-slate-400 text-right">İşlemler</TableHead>
+          <TableHeader className="bg-muted/50 dark:bg-slate-900/30">
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Teklif No</TableHead>
+              <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Müşteri</TableHead>
+              <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Tutar</TableHead>
+              <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Durum</TableHead>
+              <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Tarih</TableHead>
+              <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold text-right">İşlemler</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? <TableRow><TableCell colSpan={6} className="text-center h-24 text-slate-500">Yükleniyor...</TableCell></TableRow> :
-             filteredProposals.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center h-24 text-slate-500">Kayıtlı teklif yok.</TableCell></TableRow> :
+            {loading ? <TableRow><TableCell colSpan={6} className="text-center h-24 text-muted-foreground">Yükleniyor...</TableCell></TableRow> :
+             filteredProposals.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center h-24 text-muted-foreground">Kayıtlı teklif yok.</TableCell></TableRow> :
              filteredProposals.map((proposal) => (
-                <TableRow key={proposal.id} className="border-slate-800 hover:bg-blue-900/10 transition-colors">
-                  <TableCell className="font-medium font-mono text-blue-400">
+                <TableRow key={proposal.id} className="border-border/50 hover:bg-muted/50 dark:hover:bg-slate-900/30 transition-colors">
+                  <TableCell className="font-medium font-mono text-primary">
                     {proposal.proposal_no}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="font-semibold text-slate-200 flex items-center gap-2">
+                      <span className="font-semibold text-foreground flex items-center gap-2">
                         {proposal.customers?.company_name}
                         {proposal.customers?.is_archived && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-orange-900/30 text-orange-400 border border-orange-800 font-mono">ARŞİVLİ</span>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800 font-mono">ARŞİVLİ</span>
                         )}
                       </span>
-                      <span className="text-xs text-slate-500">{proposal.customers?.contact_person}</span>
+                      <span className="text-xs text-muted-foreground">{proposal.customers?.contact_person}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="font-semibold text-slate-200">
+                  <TableCell className="font-semibold text-foreground">
                     {Number(proposal.total_amount).toLocaleString('tr-TR')} ₺
                   </TableCell>
                   <TableCell>{getStatusBadge(proposal.status)}</TableCell>
-                  <TableCell className="text-sm text-slate-500">
+                  <TableCell className="text-sm text-muted-foreground">
                     {new Date(proposal.created_at).toLocaleDateString('tr-TR')}
                   </TableCell>
                   <TableCell className="text-right">
@@ -287,46 +299,54 @@ export default function ProposalsListPage() {
                     {/* İŞLEM MENÜSÜ */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0 text-slate-400 hover:text-white hover:bg-slate-800">
+                        <Button variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-muted">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-slate-900 border-slate-700 text-slate-200 w-56">
+                      <DropdownMenuContent align="end" className="bg-popover border-border text-popover-foreground w-56">
                         <DropdownMenuLabel>Aksiyonlar</DropdownMenuLabel>
 
-                        <Link href={`/preview/proposal/${proposal.access_key}`} target="_blank">
-                          <DropdownMenuItem className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800">
-                            <Eye className="mr-2 h-4 w-4 text-blue-400" /> PDF Önizle
+                        <Link href={`/preview/proposal/${proposal.access_key}` as any} target="_blank">
+                          <DropdownMenuItem className="cursor-pointer hover:bg-accent focus:bg-accent">
+                            <Eye className="mr-2 h-4 w-4 text-primary" /> PDF Önizle
                           </DropdownMenuItem>
                         </Link>
-                        <DropdownMenuSeparator className="bg-slate-700" />
 
-                        <DropdownMenuLabel className="text-xs text-slate-500 uppercase tracking-wider">Durum</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => updateStatus(proposal, 'sent')} className="hover:bg-slate-800 focus:bg-slate-800">
-                          <Send className="mr-2 h-4 w-4 text-blue-500" /> Gönderildi
-                        </DropdownMenuItem>
-                        
-                        {/* ONYALANDI BUTONU - MODAL AÇAR */}
-                        <DropdownMenuItem onClick={() => updateStatus(proposal, 'accepted')} className="hover:bg-slate-800 focus:bg-slate-800">
-                          <CheckCircle className="mr-2 h-4 w-4 text-indigo-500" /> Onaylandı (Başla)
-                        </DropdownMenuItem>
-                        
-                        <DropdownMenuItem onClick={() => updateStatus(proposal, 'completed')} className="hover:bg-slate-800 focus:bg-slate-800">
-                          <Briefcase className="mr-2 h-4 w-4 text-green-500" /> Tamamlandı (Kasa)
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => updateStatus(proposal, 'rejected')} className="hover:bg-slate-800 focus:bg-slate-800">
-                          <XCircle className="mr-2 h-4 w-4 text-red-500" /> Reddedildi
-                        </DropdownMenuItem>
+                        {/* Durum değiştirme - sadece edit yetkisi olanlar */}
+                        {canEditData(userRole) && (
+                          <>
+                            <DropdownMenuSeparator className="bg-border" />
+                            <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider">Durum</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => updateStatus(proposal, 'sent')} className="hover:bg-accent focus:bg-accent">
+                              <Send className="mr-2 h-4 w-4 text-blue-500" /> Gönderildi
+                            </DropdownMenuItem>
+                            
+                            {/* ONYALANDI BUTONU - MODAL AÇAR */}
+                            <DropdownMenuItem onClick={() => updateStatus(proposal, 'accepted')} className="hover:bg-accent focus:bg-accent">
+                              <CheckCircle className="mr-2 h-4 w-4 text-indigo-500" /> Onaylandı (Başla)
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuItem onClick={() => updateStatus(proposal, 'completed')} className="hover:bg-accent focus:bg-accent">
+                              <Briefcase className="mr-2 h-4 w-4 text-green-500" /> Tamamlandı (Kasa)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateStatus(proposal, 'rejected')} className="hover:bg-accent focus:bg-accent">
+                              <XCircle className="mr-2 h-4 w-4 text-red-500" /> Reddedildi
+                            </DropdownMenuItem>
+                          </>
+                        )}
 
-                        <DropdownMenuSeparator className="bg-slate-700" />
-
-                        {/* SİLME VE ARŞİV */}
-                        <DropdownMenuItem onClick={() => handleArchive(proposal.id)} className="text-orange-400 hover:bg-slate-800 focus:bg-slate-800 cursor-pointer">
-                            <Archive className="mr-2 h-4 w-4" /> Arşivle
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(proposal.id)} className="text-red-600 hover:bg-slate-800 focus:bg-slate-800 cursor-pointer">
-                          <Trash2 className="mr-2 h-4 w-4" /> Sil
-                        </DropdownMenuItem>
+                        {/* Arşiv ve Silme - sadece admin/owner */}
+                        {canDeleteData(userRole) && (
+                          <>
+                            <DropdownMenuSeparator className="bg-border" />
+                            <DropdownMenuItem onClick={() => handleArchive(proposal.id)} className="text-orange-600 dark:text-orange-400 hover:bg-accent focus:bg-accent cursor-pointer">
+                                <Archive className="mr-2 h-4 w-4" /> Arşivle
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDelete(proposal.id)} className="text-red-600 dark:text-red-500 hover:bg-accent focus:bg-accent cursor-pointer">
+                              <Trash2 className="mr-2 h-4 w-4" /> Sil
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -339,14 +359,14 @@ export default function ProposalsListPage() {
 
       {/* --- SÖZLEŞME OLUŞTURMA POPUP'I --- */}
       <Dialog open={showContractDialog} onOpenChange={setShowContractDialog}>
-        <DialogContent className="sm:max-w-[500px] bg-slate-950 border-slate-800 text-white">
+        <DialogContent className="sm:max-w-[500px] bg-card border-border text-foreground">
             <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-xl">
                     <FileSignature className="w-6 h-6 text-green-500"/> Hizmet Sözleşmesi
                 </DialogTitle>
             </DialogHeader>
-            <div className="py-2 text-slate-300 text-sm">
-                Teklif onaylandı olarak işaretleniyor. Bu proje için <strong>Otomatik Hizmet Sözleşmesi</strong> hazırlamak ister misiniz?
+            <div className="py-2 text-muted-foreground text-sm">
+                Teklif onaylandı olarak işaretleniyor. Bu proje için <strong className="text-foreground">Otomatik Hizmet Sözleşmesi</strong> hazırlamak ister misiniz?
             </div>
             <div className="flex flex-col gap-3 py-4">
                 <Button onClick={createAutoContract} className="bg-green-600 hover:bg-green-500 text-white justify-start h-auto py-3 px-4 rounded-xl border border-green-500/50">
@@ -356,14 +376,14 @@ export default function ProposalsListPage() {
                     </div>
                 </Button>
 
-                <Button onClick={goToManualContract} variant="secondary" className="bg-slate-800 hover:bg-slate-700 text-white justify-start h-auto py-3 px-4 rounded-xl border border-slate-700">
+                <Button onClick={goToManualContract} variant="secondary" className="bg-muted hover:bg-muted/80 text-foreground justify-start h-auto py-3 px-4 rounded-xl border border-border">
                     <div className="text-left">
                         <div className="font-bold text-base">Manuel Düzenle</div>
-                        <div className="text-xs text-slate-400">Editör açılarak maddeleri özelleştirmenizi sağlar.</div>
+                        <div className="text-xs text-muted-foreground">Editör açılarak maddeleri özelleştirmenizi sağlar.</div>
                     </div>
                 </Button>
                 
-                <Button onClick={skipContract} variant="ghost" className="text-slate-500 hover:text-white justify-center mt-2 hover:bg-slate-800">
+                <Button onClick={skipContract} variant="ghost" className="text-muted-foreground hover:text-foreground justify-center mt-2 hover:bg-muted">
                     Hayır, Sadece Durumu Güncelle
                 </Button>
             </div>

@@ -13,42 +13,43 @@ import {
   Archive,
   FileSignature
 } from "lucide-react";
+import { OrganizationSwitcher } from "./OrganizationSwitcher";
 
 export function Sidebar() {
   const t = useTranslations("Sidebar");
   const pathname = usePathname();
 
   const menuItems = [
-    { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
-    { href: "/projects", labelKey: "projects", icon: Rocket },
-    { href: "/customers", labelKey: "customers", icon: Users },
-    { href: "/proposals", labelKey: "proposals", icon: FileText },
-    { href: "/contracts", labelKey: "contracts", icon: FileSignature },
-    { href: "/finance", labelKey: "finance", icon: Wallet },
-    { href: "/archive", labelKey: "archive", icon: Archive },
-    { href: "/settings", labelKey: "settings", icon: Settings },
+    { href: "/dashboard" as const, labelKey: "dashboard", icon: LayoutDashboard },
+    { href: "/projects" as const, labelKey: "projects", icon: Rocket },
+    { href: "/customers" as const, labelKey: "customers", icon: Users },
+    { href: "/proposals" as const, labelKey: "proposals", icon: FileText },
+    { href: "/contracts" as const, labelKey: "contracts", icon: FileSignature },
+    { href: "/finance" as const, labelKey: "finance", icon: Wallet },
+    { href: "/archive" as const, labelKey: "archive", icon: Archive },
+    { href: "/settings" as const, labelKey: "settings", icon: Settings },
   ];
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-64 border-r border-slate-800 bg-slate-950/50 backdrop-blur-xl hidden md:flex flex-col z-50">
+    <aside className="fixed left-0 top-0 h-full w-64 border-r border-border bg-card/80 dark:bg-slate-950/50 backdrop-blur-xl hidden md:flex flex-col z-50">
       {/* LOGO ALANI */}
-      <div className="h-20 flex items-center px-8 border-b border-slate-800/50">
+      <div className="h-16 flex items-center px-6 border-b border-border">
         <Link href="/dashboard" className="flex items-center gap-2 group">
-          {/* <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.5)] group-hover:shadow-[0_0_25px_rgba(139,92,246,0.6)] transition-all">
-            <Rocket className="w-5 h-5 text-white" />
-          </div>
-          <span className="font-bold text-xl tracking-tight text-slate-100">
-            unalisi<span className="text-blue-500">.os</span>
-          </span> */}
-          <img src="/images/logo-dark.png" alt="" />
+          <img src="/images/logo-light.png" alt="" className="dark:hidden h-8" />
+          <img src="/images/logo-dark.png" alt="" className="hidden dark:block h-8" />
         </Link>
+      </div>
+
+      {/* ORGANİZASYON SEÇİCİ */}
+      <div className="px-3 py-4 border-b border-border">
+        <OrganizationSwitcher />
       </div>
 
       {/* MENÜ LİNKLERİ */}
       <nav className="flex-1 py-8 px-4 space-y-2">
         {menuItems.map((item) => {
           // Pathname'i kontrol et - hem tam eşleşme hem de alt route'lar için
-          const isActive = pathname === item.href || (item.href !== "/" && pathname?.startsWith(item.href));
+          const isActive = pathname === item.href || pathname?.startsWith(item.href);
           return (
             <Link
               key={item.href}
@@ -56,16 +57,16 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
                 isActive 
-                  ? "bg-blue-600/10 text-blue-400 border border-blue-600/20 shadow-[0_0_15px_rgba(59,130,246,0.15)]" 
-                  : "text-slate-400 hover:text-slate-100 hover:bg-slate-900/50"
+                  ? "bg-primary/10 text-primary border border-primary/20 shadow-sm dark:shadow-[0_0_15px_rgba(59,130,246,0.15)]" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
               )}
             >
-              <item.icon className={cn("w-5 h-5", isActive ? "text-blue-400" : "text-slate-500 group-hover:text-slate-300")} />
+              <item.icon className={cn("w-5 h-5", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
               <span className="font-medium">{t(item.labelKey)}</span>
               
               {/* Aktif İndikatörü (Glow Dot) */}
               {isActive && (
-                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_10px_#60a5fa]" />
+                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary dark:shadow-[0_0_10px_#60a5fa]" />
               )}
             </Link>
           );
@@ -73,12 +74,12 @@ export function Sidebar() {
       </nav>
 
       {/* ALT BİLGİ */}
-      <div className="p-4 border-t border-slate-800/50">
-        <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-800">
-          <div className="text-xs text-slate-500 mb-1">Sistem Durumu</div>
+      <div className="p-4 border-t border-border">
+        <div className="bg-muted/50 dark:bg-slate-900/50 rounded-xl p-4 border border-border">
+          <div className="text-xs text-muted-foreground mb-1">Sistem Durumu</div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm font-medium text-green-400">Online</span>
+            <span className="text-sm font-medium text-green-600 dark:text-green-400">Online</span>
           </div>
         </div>
       </div>

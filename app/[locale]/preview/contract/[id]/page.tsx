@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Loader2, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import ContractTemplate from "@/components/templates/ContractTemplate"; // <--- Yeni Şablon
+import ContractTemplate from "@/components/templates/ContractTemplate";
 
 export default function ContractPreviewPage() {
   const params = useParams();
@@ -70,3 +70,4 @@ export default function ContractPreviewPage() {
     </div>
   );
 }
+

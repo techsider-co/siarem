@@ -16,6 +16,11 @@ export const routing = defineRouting({
       tr: '/giris-yap',
       de: '/anmeldung'
     },
+    '/register': {
+      en: '/register',
+      tr: '/kayit-ol',
+      de: '/registrieren'
+    },
     '/dashboard': {
       en: '/dashboard',
       tr: '/yonetim-paneli',
@@ -70,6 +75,21 @@ export const routing = defineRouting({
       en: '/settings',
       tr: '/ayarlar',
       de: '/einstellungen'
+    },
+    '/settings/organization': {
+      en: '/settings/organization',
+      tr: '/ayarlar/organizasyon',
+      de: '/einstellungen/organisation'
+    },
+    '/settings/team': {
+      en: '/settings/team',
+      tr: '/ayarlar/ekip',
+      de: '/einstellungen/team'
+    },
+    '/onboarding': {
+      en: '/onboarding',
+      tr: '/baslangic',
+      de: '/einrichtung'
     }
   }
 });

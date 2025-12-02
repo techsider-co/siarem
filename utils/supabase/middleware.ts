@@ -50,6 +50,17 @@ export async function updateSession(request: NextRequest) {
                       pathname === '/giris-yap' ||
                       pathname === '/anmeldung';
   
+  // Register path'lerini kontrol et
+  const isRegisterPage = pathWithoutLocale === '/register' || 
+                         pathWithoutLocale === '/kayit-ol' || 
+                         pathWithoutLocale === '/registrieren' ||
+                         pathname === '/register' ||
+                         pathname === '/kayit-ol' ||
+                         pathname === '/registrieren';
+  
+  // Auth sayfaları (login veya register)
+  const isAuthPage = isLoginPage || isRegisterPage;
+  
   // Landing page (ana sayfa) kontrolü - locale prefix'li veya prefix'siz
   // /tr, /tr/, /en, /en/ gibi URL'ler landing page'dir
   // pathWithoutLocale '/' olduğunda veya pathname sadece locale ise landing page'dir
@@ -59,11 +70,11 @@ export async function updateSession(request: NextRequest) {
                         pathname === `/${locale}/`;
   
   // 1. Kullanıcı yoksa:
-  //    - Landing page'de veya login sayfasındaysa -> İzin ver
+  //    - Landing page'de veya auth sayfalarındaysa (login/register) -> İzin ver
   //    - Diğer sayfalardaysa -> Login'e yönlendir
   if (!user) {
-    if (isLandingPage || isLoginPage) {
-      // Landing page veya login sayfasında, izin ver
+    if (isLandingPage || isAuthPage) {
+      // Landing page veya auth sayfalarında, izin ver
       return response;
     }
     // Diğer sayfalarda, login'e yönlendir
@@ -73,10 +84,10 @@ export async function updateSession(request: NextRequest) {
   }
 
   // 2. Kullanıcı varsa:
-  //    - Login sayfasındaysa -> Dashboard'a yönlendir
+  //    - Auth sayfalarındaysa (login/register) -> Dashboard'a yönlendir
   //    - Landing page'deyse -> Dashboard'a yönlendir
   if (user) {
-    if (isLoginPage || isLandingPage) {
+    if (isAuthPage || isLandingPage) {
       // Dashboard path'ini locale'e göre oluştur
       const dashboardPath = locale === 'tr' ? '/yonetim-paneli' : locale === 'de' ? '/instrumententafel' : '/dashboard';
       const dashboardUrl = new URL(`/${locale}${dashboardPath}`, request.url);

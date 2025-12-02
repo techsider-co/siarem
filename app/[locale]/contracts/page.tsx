@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { useOrganization, canEditData, canDeleteData } from "@/contexts/OrganizationContext";
 import { toast } from "sonner";
 import {
   Search,
@@ -71,6 +72,7 @@ interface Contract {
 
 export default function ContractsPage() {
   const supabase = createClient();
+  const { currentOrg, userRole } = useOrganization();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -155,7 +157,7 @@ export default function ContractsPage() {
     switch (status) {
       case "signed":
         return (
-          <Badge className="bg-green-500/20 text-green-400 border border-green-500/20">
+          <Badge className="bg-green-100 text-green-700 border border-green-300 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30">
             İmzalandı
           </Badge>
         );
@@ -163,7 +165,7 @@ export default function ContractsPage() {
         return <Badge variant="destructive">Feshedildi</Badge>;
       default:
         return (
-          <Badge className="bg-orange-500/20 text-orange-300 border border-orange-500/20 animate-pulse">
+          <Badge className="bg-orange-100 text-orange-700 border border-orange-300 dark:bg-orange-500/20 dark:text-orange-400 dark:border-orange-500/30 animate-pulse">
             İmza Bekliyor
           </Badge>
         );
@@ -175,11 +177,11 @@ export default function ContractsPage() {
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-white glow-text flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
             <FileSignature className="h-8 w-8 text-indigo-500" /> Sözleşme
             Yönetimi
           </h1>
-          <p className="text-slate-400 mt-1">
+          <p className="text-muted-foreground mt-1">
             Resmi hizmet sözleşmeleri ve hukuksal süreçler.
           </p>
         </div>
@@ -188,10 +190,10 @@ export default function ContractsPage() {
       {/* TABS (FİLTRELEME) */}
       <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
         <div className="flex flex-col md:flex-row justify-between items-end gap-4">
-          <TabsList className="bg-slate-900 border border-slate-800 p-1 rounded-xl">
+          <TabsList className="bg-muted/50 dark:bg-slate-900 border border-border p-1 rounded-xl">
             <TabsTrigger
               value="all"
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 rounded-lg"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground px-6 rounded-lg"
             >
               Tümü
             </TabsTrigger>
@@ -203,7 +205,7 @@ export default function ContractsPage() {
             </TabsTrigger>
             <TabsTrigger
               value="draft"
-              className="data-[state=active]:bg-orange-600 data-[state=active]:text-white px-6 rounded-lg"
+              className="data-[state=active]:bg-orange-500 data-[state=active]:text-white px-6 rounded-lg"
             >
               İmza Bekleyen
             </TabsTrigger>
@@ -211,11 +213,11 @@ export default function ContractsPage() {
 
           {/* ARAMA ÇUBUĞU */}
           <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
               placeholder="Sözleşme No veya Firma ara..."
-              className="pl-10 bg-slate-900/30 border-slate-700 text-white focus:border-blue-500 h-10 rounded-xl"
+              className="pl-10 bg-muted/50 border-border text-foreground focus:border-primary h-10 rounded-xl"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -224,15 +226,15 @@ export default function ContractsPage() {
 
         {/* TABLO */}
         <TabsContent value={activeTab} className="mt-6">
-          <div className="glass-panel rounded-2xl overflow-hidden neon-border">
+          <div className="rounded-2xl border border-border bg-card/50 backdrop-blur-sm overflow-hidden shadow-md">
             <Table>
-              <TableHeader className="bg-slate-900/50">
-                <TableRow className="border-slate-800 hover:bg-transparent">
-                  <TableHead className="text-slate-400">Sözleşme No</TableHead>
-                  <TableHead className="text-slate-400">Müşteri</TableHead>
-                  <TableHead className="text-slate-400">Durum</TableHead>
-                  <TableHead className="text-slate-400">Oluşturulma</TableHead>
-                  <TableHead className="text-slate-400 text-right">
+              <TableHeader className="bg-muted/50 dark:bg-slate-900/30">
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Sözleşme No</TableHead>
+                  <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Müşteri</TableHead>
+                  <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Durum</TableHead>
+                  <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Oluşturulma</TableHead>
+                  <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold text-right">
                     İşlemler
                   </TableHead>
                 </TableRow>
@@ -242,7 +244,7 @@ export default function ContractsPage() {
                   <TableRow>
                     <TableCell
                       colSpan={5}
-                      className="text-center h-24 text-slate-500"
+                      className="text-center h-24 text-muted-foreground"
                     >
                       Yükleniyor...
                     </TableCell>
@@ -251,7 +253,7 @@ export default function ContractsPage() {
                   <TableRow>
                     <TableCell
                       colSpan={5}
-                      className="text-center h-24 text-slate-500"
+                      className="text-center h-24 text-muted-foreground"
                     >
                       Kayıt bulunamadı.
                     </TableCell>
@@ -260,44 +262,42 @@ export default function ContractsPage() {
                   filteredContracts.map((contract) => (
                     <TableRow
                       key={contract.id}
-                      className="border-slate-800 hover:bg-blue-900/10 transition-colors cursor-pointer group"
-                      onClick={() => handleRowClick(contract)} // --- ROW CLICK ---
+                      className="border-border/50 hover:bg-muted/50 dark:hover:bg-slate-900/30 transition-colors cursor-pointer group"
+                      onClick={() => handleRowClick(contract)}
                     >
-                      <TableCell className="font-mono text-indigo-400 font-medium group-hover:text-indigo-300">
+                      <TableCell className="font-mono text-indigo-600 dark:text-indigo-400 font-medium group-hover:text-indigo-500 dark:group-hover:text-indigo-300">
                         {contract.contract_no || "TASLAK"}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="font-semibold text-slate-200">
+                          <span className="font-semibold text-foreground">
                             {contract.customers?.company_name}
                           </span>
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-muted-foreground">
                             {contract.customers?.contact_person}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(contract.status)}</TableCell>
-                      <TableCell className="text-sm text-slate-500">
+                      <TableCell className="text-sm text-muted-foreground">
                         {new Date(contract.created_at).toLocaleDateString(
                           "tr-TR"
                         )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div onClick={(e) => e.stopPropagation()}>
-                          {" "}
-                          {/* BUTONLARI İZOLE ET */}
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
                                 variant="ghost"
-                                className="h-8 w-8 p-0 text-slate-400 hover:text-white hover:bg-slate-800"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
                               >
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                               align="end"
-                              className="bg-slate-900 border-slate-700 text-slate-200 w-48"
+                              className="bg-popover border-border text-popover-foreground w-48"
                             >
                               <DropdownMenuLabel>Aksiyonlar</DropdownMenuLabel>
 
@@ -305,28 +305,35 @@ export default function ContractsPage() {
                                 href={`/preview/contract/${contract.id}`}
                                 target="_blank"
                               >
-                                <DropdownMenuItem className="cursor-pointer hover:bg-slate-800">
-                                  <Eye className="mr-2 h-4 w-4 text-blue-400" />{" "}
+                                <DropdownMenuItem className="cursor-pointer hover:bg-accent focus:bg-accent">
+                                  <Eye className="mr-2 h-4 w-4 text-primary" />{" "}
                                   PDF / İncele
                                 </DropdownMenuItem>
                               </Link>
 
-                              <DropdownMenuItem
-                                onClick={(e) => handleSign(e, contract.id)}
-                                className="hover:bg-slate-800 cursor-pointer"
-                              >
-                                <CheckCircle className="mr-2 h-4 w-4 text-green-500" />{" "}
-                                İmzalandı İşaretle
-                              </DropdownMenuItem>
+                              {/* İmzalama - sadece edit yetkisi olanlar */}
+                              {canEditData(userRole) && (
+                                <DropdownMenuItem
+                                  onClick={(e) => handleSign(e, contract.id)}
+                                  className="hover:bg-accent focus:bg-accent cursor-pointer"
+                                >
+                                  <CheckCircle className="mr-2 h-4 w-4 text-green-500" />{" "}
+                                  İmzalandı İşaretle
+                                </DropdownMenuItem>
+                              )}
 
-                              <DropdownMenuSeparator className="bg-slate-700" />
-
-                              <DropdownMenuItem
-                                onClick={(e) => handleDelete(e, contract.id)}
-                                className="text-red-500 hover:bg-slate-800 cursor-pointer"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" /> Sil
-                              </DropdownMenuItem>
+                              {/* Silme - sadece admin/owner */}
+                              {canDeleteData(userRole) && (
+                                <>
+                                  <DropdownMenuSeparator className="bg-border" />
+                                  <DropdownMenuItem
+                                    onClick={(e) => handleDelete(e, contract.id)}
+                                    className="text-red-600 dark:text-red-500 hover:bg-accent focus:bg-accent cursor-pointer"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" /> Sil
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -340,40 +347,40 @@ export default function ContractsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* --- SÖZLEŞME İNCELEME MODALI (YENİ) --- */}
+      {/* --- SÖZLEŞME İNCELEME MODALI --- */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="sm:max-w-[800px] h-[80vh] glass-panel border-slate-700 text-white flex flex-col">
+        <DialogContent className="sm:max-w-[800px] h-[80vh] bg-card border-border text-foreground flex flex-col">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
+            <DialogTitle className="text-xl font-bold text-foreground flex items-center gap-2">
               <FileSignature className="w-5 h-5 text-indigo-500" /> Sözleşme
               Detayı
             </DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-muted-foreground">
               {viewContract?.contract_no} -{" "}
               {viewContract?.customers?.company_name}
             </DialogDescription>
           </DialogHeader>
 
           {viewContract && (
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-900/50 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-6 bg-muted/30 dark:bg-slate-900/50 custom-scrollbar rounded-lg">
               {/* Müşteri Özeti Kartı */}
-              <div className="bg-slate-900 p-4 rounded-lg border border-slate-700 grid grid-cols-2 gap-4 text-sm mb-6">
+              <div className="bg-card p-4 rounded-lg border border-border grid grid-cols-2 gap-4 text-sm mb-6">
                 <div>
-                  <div className="text-slate-500 text-xs uppercase font-semibold tracking-wider mb-1">
+                  <div className="text-muted-foreground text-xs uppercase font-semibold tracking-wider mb-1">
                     Müşteri
                   </div>
-                  <div className="font-bold text-white text-base">
+                  <div className="font-bold text-foreground text-base">
                     {viewContract.customers.company_name}
                   </div>
-                  <div className="text-slate-400">
+                  <div className="text-muted-foreground">
                     {viewContract.customers.contact_person}
                   </div>
                 </div>
                 <div>
-                  <div className="text-slate-500 text-xs uppercase font-semibold tracking-wider mb-1">
+                  <div className="text-muted-foreground text-xs uppercase font-semibold tracking-wider mb-1">
                     Tarih & Durum
                   </div>
-                  <div className="font-bold text-white text-base">
+                  <div className="font-bold text-foreground text-base">
                     {new Date(viewContract.created_at).toLocaleDateString(
                       "tr-TR"
                     )}
@@ -384,34 +391,23 @@ export default function ContractsPage() {
                 </div>
               </div>
 
-              <Separator className="bg-slate-800 mb-6" />
+              <Separator className="bg-border mb-6" />
 
-              {/* Sözleşme Metni (ScrollArea yerine düz div kullandık) */}
-              <div className="rounded-md border border-slate-800 bg-slate-950 p-6 space-y-8">
+              {/* Sözleşme Metni */}
+              <div className="rounded-md border border-border bg-card p-6 space-y-8">
                 {viewContract.content?.clauses?.map((clause, i) => (
                   <div key={i}>
-                    <h4 className="text-indigo-400 font-bold mb-3 text-sm uppercase tracking-wide border-b border-indigo-900/30 pb-2">
+                    <h4 className="text-indigo-600 dark:text-indigo-400 font-bold mb-3 text-sm uppercase tracking-wide border-b border-indigo-200 dark:border-indigo-900/30 pb-2">
                       {clause.title}
                     </h4>
                     {/* HTML İçeriği */}
                     <div
-                      className="text-slate-300 text-sm leading-relaxed space-y-2 text-justify"
+                      className="text-muted-foreground text-sm leading-relaxed space-y-2 text-justify"
                       dangerouslySetInnerHTML={{ __html: clause.content }}
                     />
                   </div>
                 ))}
               </div>
-
-              {/* Kapat Butonu */}
-              {/* <div className="pt-6 flex justify-end sticky bottom-0">
-                <Button
-                  onClick={() => setIsViewOpen(false)}
-                  variant="secondary"
-                  className="bg-slate-800 hover:bg-slate-700 text-white"
-                >
-                  Kapat
-                </Button>
-              </div> */}
             </div>
           )}
         </DialogContent>

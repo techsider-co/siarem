@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { useOrganization, canEditData, canDeleteData } from "@/contexts/OrganizationContext";
 import { toast } from "sonner";
 import {
   Wallet,
@@ -82,6 +83,7 @@ const YEARS = [2024, 2025, 2026, 2027];
 
 export default function FinancePage() {
   const supabase = createClient();
+  const { currentOrg, userRole } = useOrganization();
 
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -235,8 +237,13 @@ export default function FinancePage() {
       toast.warning("Doldurun.");
       return;
     }
+    if (!currentOrg) {
+      toast.error("Organizasyon bulunamadı.");
+      return;
+    }
 
     const payload: any = {
+      organization_id: currentOrg.id,
       description: formData.description,
       amount: Number(formData.amount),
       type: formData.type,
@@ -310,7 +317,9 @@ export default function FinancePage() {
             color: black !important;
           }
           .text-slate-400,
-          .text-white {
+          .text-white,
+          .text-foreground,
+          .text-muted-foreground {
             color: black !important;
           }
           .glow-text {
@@ -337,10 +346,10 @@ export default function FinancePage() {
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
         <div>
-          <h1 className="text-3xl font-bold text-white glow-text flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
             <Wallet className="h-8 w-8 text-green-500" /> Finansal Raporlama
           </h1>
-          <p className="text-slate-400 mt-1">
+          <p className="text-muted-foreground mt-1">
             Dönem:{" "}
             {selectedMonth !== "all"
               ? MONTHS[Number(selectedMonth)]
@@ -352,33 +361,35 @@ export default function FinancePage() {
           <Button
             onClick={() => window.print()}
             variant="outline"
-            className="border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800"
+            className="border-border text-muted-foreground hover:text-foreground hover:bg-muted"
           >
             <Printer className="mr-2 h-4 w-4" /> Raporu Yazdır
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white border-0">
-                <Plus className="mr-2 h-4 w-4" /> Yeni İşlem
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px] glass-panel border-slate-700 text-white">
+            {canEditData(userRole) && (
+              <DialogTrigger asChild>
+                <Button className="bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white border-0 shadow-lg shadow-green-600/25">
+                  <Plus className="mr-2 h-4 w-4" /> Yeni İşlem
+                </Button>
+              </DialogTrigger>
+            )}
+            <DialogContent className="sm:max-w-[500px] bg-card border-border text-foreground">
               <DialogHeader>
-                <DialogTitle>Yeni Finansal Hareket</DialogTitle>
+                <DialogTitle className="text-foreground">Yeni Finansal Hareket</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSave} className="grid gap-4 py-4">
-                <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700 space-y-3">
-                  <Label className="text-blue-400 text-xs font-bold uppercase">
+                <div className="bg-blue-50 dark:bg-slate-900/50 p-4 rounded-lg border border-blue-200 dark:border-slate-700 space-y-3">
+                  <Label className="text-primary text-xs font-bold uppercase">
                     Otomatik Doldur
                   </Label>
                   <Select
                     onValueChange={handleProposalChange}
                     value={formData.proposal_id}
                   >
-                    <SelectTrigger className="bg-slate-950 border-slate-600 text-white">
+                    <SelectTrigger className="bg-white dark:bg-slate-950 border-border text-foreground">
                       <SelectValue placeholder="Seçiniz" />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-700 text-white">
+                    <SelectContent className="bg-popover border-border text-popover-foreground">
                       <SelectItem value="none">-- Manuel --</SelectItem>
                       {proposals.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
@@ -394,36 +405,36 @@ export default function FinancePage() {
                       variant="outline"
                       size="sm"
                       onClick={applyRuulCommission}
-                      className="w-full border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
+                      className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
-                      <Zap className="mr-2 h-3 w-3 text-yellow-400" /> Ruul %5
+                      <Zap className="mr-2 h-3 w-3 text-yellow-500" /> Ruul %5
                       Ekle
                     </Button>
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Tipi</Label>
+                    <Label className="text-muted-foreground">Tipi</Label>
                     <Select
                       onValueChange={(val) =>
                         setFormData({ ...formData, type: val as any })
                       }
                       value={formData.type}
                     >
-                      <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white">
+                      <SelectTrigger className="bg-muted/50 border-border text-foreground">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-slate-700 text-white">
+                      <SelectContent className="bg-popover border-border text-popover-foreground">
                         <SelectItem value="income">Gelir (+)</SelectItem>
                         <SelectItem value="expense">Gider (-)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Tutar (₺)</Label>
+                    <Label className="text-muted-foreground">Tutar (₺)</Label>
                     <Input
                       type="number"
-                      className="bg-slate-900/50 border-slate-700 text-white"
+                      className="bg-muted/50 border-border text-foreground"
                       value={formData.amount}
                       onChange={(e) =>
                         setFormData({ ...formData, amount: e.target.value })
@@ -432,9 +443,9 @@ export default function FinancePage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Açıklama</Label>
+                  <Label className="text-muted-foreground">Açıklama</Label>
                   <Input
-                    className="bg-slate-900/50 border-slate-700 text-white"
+                    className="bg-muted/50 border-border text-foreground"
                     value={formData.description}
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
@@ -443,17 +454,17 @@ export default function FinancePage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Kategori</Label>
+                    <Label className="text-muted-foreground">Kategori</Label>
                     <Select
                       onValueChange={(val) =>
                         setFormData({ ...formData, category: val })
                       }
                       value={formData.category}
                     >
-                      <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white">
+                      <SelectTrigger className="bg-muted/50 border-border text-foreground">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-slate-700 text-white">
+                      <SelectContent className="bg-popover border-border text-popover-foreground">
                         <SelectItem value="project">Proje</SelectItem>
                         <SelectItem value="commission">Komisyon</SelectItem>
                         <SelectItem value="software">Yazılım</SelectItem>
@@ -464,10 +475,10 @@ export default function FinancePage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Tarih</Label>
+                    <Label className="text-muted-foreground">Tarih</Label>
                     <Input
                       type="date"
-                      className="bg-slate-900/50 border-slate-700 text-white"
+                      className="bg-muted/50 border-border text-foreground"
                       value={formData.date}
                       onChange={(e) =>
                         setFormData({ ...formData, date: e.target.value })
@@ -477,7 +488,7 @@ export default function FinancePage() {
                 </div>
                 <Button
                   type="submit"
-                  className="mt-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-0"
+                  className="mt-4 bg-linear-to-r from-primary to-secondary text-primary-foreground border-0 shadow-lg shadow-primary/25"
                 >
                   Kaydet
                 </Button>
@@ -488,15 +499,15 @@ export default function FinancePage() {
       </div>
 
       {/* FİLTRE BAR */}
-      <div className="glass-panel p-4 rounded-xl flex flex-wrap gap-4 items-center neon-border no-print">
-        <div className="flex items-center gap-2 text-slate-400 text-sm font-semibold uppercase tracking-wider mr-2">
+      <div className="bg-card/50 backdrop-blur-sm border border-border p-4 rounded-xl flex flex-wrap gap-4 items-center shadow-sm no-print">
+        <div className="flex items-center gap-2 text-muted-foreground text-sm font-semibold uppercase tracking-wider mr-2">
           <Filter className="w-4 h-4" /> Filtrele:
         </div>
         <Select value={selectedYear} onValueChange={setSelectedYear}>
-          <SelectTrigger className="w-[100px] bg-slate-900 border-slate-700 text-white">
+          <SelectTrigger className="w-[100px] bg-muted/50 border-border text-foreground">
             <SelectValue placeholder="Yıl" />
           </SelectTrigger>
-          <SelectContent className="bg-slate-900 border-slate-700 text-white">
+          <SelectContent className="bg-popover border-border text-popover-foreground">
             <SelectItem value="all">Tümü</SelectItem>
             {YEARS.map((y) => (
               <SelectItem key={y} value={y.toString()}>
@@ -506,10 +517,10 @@ export default function FinancePage() {
           </SelectContent>
         </Select>
         <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-          <SelectTrigger className="w-[130px] bg-slate-900 border-slate-700 text-white">
+          <SelectTrigger className="w-[130px] bg-muted/50 border-border text-foreground">
             <SelectValue placeholder="Ay" />
           </SelectTrigger>
-          <SelectContent className="bg-slate-900 border-slate-700 text-white">
+          <SelectContent className="bg-popover border-border text-popover-foreground">
             <SelectItem value="all">Tümü</SelectItem>
             {MONTHS.map((m, i) => (
               <SelectItem key={i} value={i.toString()}>
@@ -519,10 +530,10 @@ export default function FinancePage() {
           </SelectContent>
         </Select>
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-[180px] bg-slate-900 border-slate-700 text-white">
+          <SelectTrigger className="w-[180px] bg-muted/50 border-border text-foreground">
             <SelectValue placeholder="Kategori" />
           </SelectTrigger>
-          <SelectContent className="bg-slate-900 border-slate-700 text-white">
+          <SelectContent className="bg-popover border-border text-popover-foreground">
             <SelectItem value="all">Tüm Kategoriler</SelectItem>
             <SelectItem value="project">Proje Gelirleri</SelectItem>
             <SelectItem value="commission">Komisyon Giderleri</SelectItem>
@@ -548,54 +559,61 @@ export default function FinancePage() {
 
       {/* ÖZET KARTLARI */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <div className="glass-panel p-6 rounded-2xl border-l-4 border-purple-500">
-          <div className="text-slate-400 text-sm font-medium uppercase tracking-widest mb-2">
+        {/* Toplam Ciro */}
+        <div className="bg-purple-50 dark:bg-card/50 backdrop-blur-sm p-6 rounded-2xl border border-purple-200 dark:border-border border-l-4 border-l-purple-500 shadow-sm">
+          <div className="text-purple-600 dark:text-muted-foreground text-sm font-medium uppercase tracking-widest mb-2">
             Toplam Ciro
           </div>
-          <div className="text-3xl font-bold text-white flex items-center gap-3">
+          <div className="text-3xl font-bold text-foreground flex items-center gap-3">
             {totalTurnover.toLocaleString("tr-TR")} ₺{" "}
             <Activity className="h-6 w-6 text-purple-500" />
           </div>
         </div>
-        <div className="glass-panel p-6 rounded-2xl border-l-4 border-green-500">
-          <div className="text-slate-400 text-sm font-medium uppercase tracking-widest mb-2">
+        
+        {/* Toplam Gelir */}
+        <div className="bg-green-50 dark:bg-card/50 backdrop-blur-sm p-6 rounded-2xl border border-green-200 dark:border-border border-l-4 border-l-green-500 shadow-sm">
+          <div className="text-green-600 dark:text-muted-foreground text-sm font-medium uppercase tracking-widest mb-2">
             Toplam Gelir
           </div>
-          <div className="text-3xl font-bold text-white flex items-center gap-3">
+          <div className="text-3xl font-bold text-foreground flex items-center gap-3">
             {periodIncome.toLocaleString("tr-TR")} ₺{" "}
             <ArrowUpRight className="h-6 w-6 text-green-500" />
           </div>
         </div>
-        <div className="glass-panel p-6 rounded-2xl border-l-4 border-red-500">
-          <div className="text-slate-400 text-sm font-medium uppercase tracking-widest mb-2">
+        
+        {/* Toplam Gider */}
+        <div className="bg-red-50 dark:bg-card/50 backdrop-blur-sm p-6 rounded-2xl border border-red-200 dark:border-border border-l-4 border-l-red-500 shadow-sm">
+          <div className="text-red-600 dark:text-muted-foreground text-sm font-medium uppercase tracking-widest mb-2">
             Toplam Gider
           </div>
-          <div className="text-3xl font-bold text-white flex items-center gap-3">
+          <div className="text-3xl font-bold text-foreground flex items-center gap-3">
             {periodExpense.toLocaleString("tr-TR")} ₺{" "}
             <ArrowDownLeft className="h-6 w-6 text-red-500" />
           </div>
         </div>
-        <div className="glass-panel p-6 rounded-2xl border-l-4 border-blue-500 bg-blue-900/20">
-          <div className="text-blue-200 text-sm font-medium uppercase tracking-widest mb-2">
+        
+        {/* Net Kasa */}
+        <div className="bg-blue-50 dark:bg-blue-900/20 backdrop-blur-sm p-6 rounded-2xl border border-blue-200 dark:border-blue-500/30 border-l-4 border-l-blue-500 shadow-sm">
+          <div className="text-blue-600 dark:text-blue-200 text-sm font-medium uppercase tracking-widest mb-2">
             Net Kasa
           </div>
-          <div className="text-3xl font-bold text-white flex items-center gap-3">
+          <div className="text-3xl font-bold text-foreground flex items-center gap-3">
             {periodBalance.toLocaleString("tr-TR")} ₺{" "}
-            <Wallet className="h-6 w-6 text-blue-400" />
+            <Wallet className="h-6 w-6 text-blue-500" />
           </div>
         </div>
       </div>
 
       {/* TABLO */}
-      <div className="glass-panel rounded-2xl overflow-hidden neon-border">
+      <div className="rounded-2xl border border-border bg-card/50 backdrop-blur-sm overflow-hidden shadow-md">
         <Table>
-          <TableHeader className="bg-slate-900/50">
-            <TableRow className="border-slate-800 hover:bg-transparent">
-              <TableHead className="text-slate-400">Açıklama</TableHead>
-              <TableHead className="text-slate-400">Kategori</TableHead>
-              <TableHead className="text-slate-400">Tarih</TableHead>
-              <TableHead className="text-slate-400 text-right">Tutar</TableHead>
-              <TableHead className="text-slate-400 text-right no-print">
+          <TableHeader className="bg-muted/50 dark:bg-slate-900/30">
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Açıklama</TableHead>
+              <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Kategori</TableHead>
+              <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Tarih</TableHead>
+              <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold text-right">Tutar</TableHead>
+              <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold text-right no-print">
                 İşlem
               </TableHead>
             </TableRow>
@@ -605,7 +623,7 @@ export default function FinancePage() {
               <TableRow>
                 <TableCell
                   colSpan={5}
-                  className="text-center h-24 text-slate-500"
+                  className="text-center h-24 text-muted-foreground"
                 >
                   Yükleniyor...
                 </TableCell>
@@ -614,7 +632,7 @@ export default function FinancePage() {
               <TableRow>
                 <TableCell
                   colSpan={5}
-                  className="text-center h-24 text-slate-500"
+                  className="text-center h-24 text-muted-foreground"
                 >
                   Seçilen dönemde kayıt yok.
                 </TableCell>
@@ -623,61 +641,63 @@ export default function FinancePage() {
               tableTransactions.map((t) => (
                 <TableRow
                   key={t.id}
-                  className="border-slate-800 hover:bg-slate-800/30 transition-colors"
+                  className="border-border/50 hover:bg-muted/50 dark:hover:bg-slate-800/30 transition-colors"
                 >
-                  <TableCell className="font-medium text-slate-200">
+                  <TableCell className="font-medium text-foreground">
                     {t.description}
                     {t.proposal_id && (
                       <Badge
                         variant="outline"
-                        className="ml-2 text-[10px] h-5 bg-blue-900/30 border-blue-800 text-blue-400 no-print"
+                        className="ml-2 text-[10px] h-5 bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 no-print"
                       >
                         Teklif
                       </Badge>
                     )}
                   </TableCell>
                   <TableCell>
-                    <span className="px-2 py-1 rounded text-xs bg-slate-800 text-slate-400 border border-slate-700 capitalize print:border-none print:pl-0">
+                    <span className="px-2 py-1 rounded text-xs bg-muted text-muted-foreground border border-border capitalize print:border-none print:pl-0">
                       {t.category}
                     </span>
                   </TableCell>
-                  <TableCell className="text-slate-500 text-sm flex items-center gap-2">
+                  <TableCell className="text-muted-foreground text-sm flex items-center gap-2">
                     <Calendar className="w-3 h-3 no-print" />{" "}
                     {new Date(t.date).toLocaleDateString("tr-TR")}
                   </TableCell>
                   <TableCell
                     className={`text-right font-bold ${
-                      t.type === "income" ? "text-green-400" : "text-red-400"
+                      t.type === "income" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                     }`}
                   >
                     {t.type === "income" ? "+" : "-"}{" "}
                     {Number(t.amount).toLocaleString("tr-TR")} ₺
                   </TableCell>
                   <TableCell className="text-right no-print">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(t.id)}
-                      className="text-slate-600 hover:text-red-400 hover:bg-red-900/20"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {canDeleteData(userRole) && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(t.id)}
+                        className="text-muted-foreground hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/20"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))
             )}
             {/* FİLTRELENMİŞ TOPLAM */}
             {tableTransactions.length > 0 && (
-              <TableRow className="bg-slate-900/80 font-bold border-t-2 border-slate-700 print:bg-gray-100 print:text-black">
+              <TableRow className="bg-muted/80 dark:bg-slate-900/80 font-bold border-t-2 border-border print:bg-gray-100 print:text-black">
                 <TableCell
                   colSpan={3}
-                  className="text-right text-slate-300 print:text-black"
+                  className="text-right text-muted-foreground print:text-black"
                 >
                   LİSTE TOPLAMI:
                 </TableCell>
                 <TableCell
                   className={`text-right ${
-                    tableNet >= 0 ? "text-green-400" : "text-red-400"
+                    tableNet >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                   } print:text-black`}
                 >
                   {tableNet.toLocaleString("tr-TR")} ₺

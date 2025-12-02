@@ -2,6 +2,7 @@
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, getTranslations } from 'next-intl/server';
 import { ThemeProvider } from "@/components/theme-provider";
+import { OrganizationProvider } from "@/contexts/OrganizationContext";
 import MainLayout from "@/components/layout/MainLayout";
 import "@/app/globals.css";
 
@@ -40,9 +41,11 @@ export default async function LocaleLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <MainLayout>
-              {children}
-            </MainLayout>
+            <OrganizationProvider>
+              <MainLayout>
+                {children}
+              </MainLayout>
+            </OrganizationProvider>
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>
