@@ -1,0 +1,63 @@
+{
+  "Sidebar": {
+    "dashboard": "Dashboard",
+    "customers": "Customers",
+    "proposals": "Proposals",
+    "contracts": "Contracts",
+    "finance": "Finance",
+    "settings": "Settings",
+    "archive": "Archive",
+    "projects": "Projects"
+  },
+  "Dashboard": {
+    "title": "Command Center",
+    "subtitle": "Welcome Captain. Systems are online.",
+    "potential_revenue": "Potential Revenue",
+    "collected_revenue": "Collected Revenue",
+    "total_proposals": "Total Proposals",
+    "active_customers": "Active Customers",
+    "seo_title": "Dashboard | Unalisi OS",
+    "seo_desc": "Your company's financial status and active projects."
+  },
+  "Landing": {
+    "seo_title": "Unalisi OS | Next-Gen Business Management",
+    "seo_desc": "Manage proposals, customers, and finances from a single AI-powered dashboard.",
+    "hero_title": "Put Your Business on Autopilot.",
+    "hero_subtitle": "AI-powered proposal generation, Kanban project management, and financial tracking.",
+    "cta_start": "Get Started",
+    "cta_login": "Login"
+  },
+  "Projects": {
+    "title": "Project Management",
+    "subtitle": "Active developments and task tracking.",
+    "seo_title": "Projects | Unalisi OS",
+    "seo_desc": "Manage and track your active projects and tasks."
+  },
+  "Customers": {
+    "seo_title": "Customers | Unalisi OS",
+    "seo_desc": "Manage your customer relationships and company information."
+  },
+  "Proposals": {
+    "seo_title": "Proposals | Unalisi OS",
+    "seo_desc": "Create and manage business proposals with AI assistance."
+  },
+  "Contracts": {
+    "seo_title": "Contracts | Unalisi OS",
+    "seo_desc": "Manage your business contracts and agreements."
+  },
+  "Finance": {
+    "seo_title": "Finance | Unalisi OS",
+    "seo_desc": "Track your revenue, expenses, and financial transactions."
+  },
+  "Archive": {
+    "title": "Archive",
+    "subtitle": "Review or restore inactive records.",
+    "seo_title": "Archive | Unalisi OS",
+    "seo_desc": "View and manage archived proposals and customers."
+  },
+  "Settings": {
+    "seo_title": "Settings | Unalisi OS",
+    "seo_desc": "Configure your account and system settings."
+  }
+}
+

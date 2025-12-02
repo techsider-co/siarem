@@ -1,0 +1,62 @@
+{
+  "Sidebar": {
+    "dashboard": "Dashboard",
+    "customers": "Kunden",
+    "proposals": "Angebote",
+    "contracts": "Verträge",
+    "finance": "Finanzen",
+    "settings": "Einstellungen",
+    "archive": "Archiv",
+    "projects": "Projekte"
+  },
+  "Dashboard": {
+    "title": "Kommandozentrale",
+    "subtitle": "Willkommen Captain. Systeme sind online.",
+    "potential_revenue": "Potenzieller Umsatz",
+    "collected_revenue": "Erzielter Umsatz",
+    "total_proposals": "Gesamtangebote",
+    "active_customers": "Aktive Kunden",
+    "seo_title": "Dashboard | Unalisi OS",
+    "seo_desc": "Finanzstatus und aktive Projekte Ihres Unternehmens."
+  },
+  "Landing": {
+    "seo_title": "Unalisi OS | Unternehmensmanagement der nächsten Generation",
+    "seo_desc": "Verwalten Sie Angebote, Kunden und Finanzen über ein einziges KI-gestütztes Dashboard.",
+    "hero_title": "Setzen Sie Ihr Unternehmen auf Autopilot.",
+    "hero_subtitle": "KI-gestützte Angebotserstellung, Kanban-Projektmanagement und Finanzverfolgung.",
+    "cta_start": "Loslegen",
+    "cta_login": "Anmelden"
+  },
+  "Projects": {
+    "title": "Projektmanagement",
+    "subtitle": "Aktive Entwicklungen und Aufgabenverfolgung.",
+    "seo_title": "Projekte | Unalisi OS",
+    "seo_desc": "Verwalten und verfolgen Sie Ihre aktiven Projekte und Aufgaben."
+  },
+  "Customers": {
+    "seo_title": "Kunden | Unalisi OS",
+    "seo_desc": "Verwalten Sie Ihre Kundenbeziehungen und Firmeninformationen."
+  },
+  "Proposals": {
+    "seo_title": "Angebote | Unalisi OS",
+    "seo_desc": "Erstellen und verwalten Sie Geschäftsangebote mit KI-Unterstützung."
+  },
+  "Contracts": {
+    "seo_title": "Verträge | Unalisi OS",
+    "seo_desc": "Verwalten Sie Ihre Geschäftsverträge und Vereinbarungen."
+  },
+  "Finance": {
+    "seo_title": "Finanzen | Unalisi OS",
+    "seo_desc": "Verfolgen Sie Ihre Einnahmen, Ausgaben und Finanztransaktionen."
+  },
+  "Archive": {
+    "title": "Archiv",
+    "subtitle": "Überprüfen oder stellen Sie inaktive Datensätze wieder her.",
+    "seo_title": "Archiv | Unalisi OS",
+    "seo_desc": "Anzeigen und verwalten Sie archivierte Angebote und Kunden."
+  },
+  "Settings": {
+    "seo_title": "Einstellungen | Unalisi OS",
+    "seo_desc": "Konfigurieren Sie Ihre Konten- und Systemeinstellungen."
+  }
+}

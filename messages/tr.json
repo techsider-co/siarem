@@ -1,0 +1,62 @@
+{
+  "Sidebar": {
+    "dashboard": "Kokpit",
+    "customers": "Müşteriler",
+    "proposals": "Teklifler",
+    "contracts": "Sözleşmeler",
+    "finance": "Finans",
+    "settings": "Ayarlar",
+    "archive": "Arşiv Odası",
+    "projects": "Projeler"
+  },
+  "Dashboard": {
+    "title": "Komuta Merkezi",
+    "subtitle": "Hoş geldin Kaptan. Sistemler aktif.",
+    "potential_revenue": "Potansiyel Ciro",
+    "collected_revenue": "Kazanılan Ciro",
+    "total_proposals": "Toplam Teklif",
+    "active_customers": "Aktif Müşteri",
+    "seo_title": "Yönetim Paneli | Unalisi OS",
+    "seo_desc": "Şirketinizin finansal durumu ve aktif projeleri."
+  },
+  "Landing": {
+    "seo_title": "Unalisi OS | Yeni Nesil İşletme Yönetim Sistemi",
+    "seo_desc": "Tekliflerinizi, müşterilerinizi ve finansal süreçlerinizi yapay zeka destekli tek bir panelden yönetin.",
+    "hero_title": "İşletmenizi Otopilota Alın.",
+    "hero_subtitle": "Yapay zeka destekli teklif hazırlama, kanban proje yönetimi ve finansal takip.",
+    "cta_start": "Hemen Başla",
+    "cta_login": "Giriş Yap"
+  },
+  "Projects": {
+    "title": "Proje Yönetimi",
+    "subtitle": "Aktif geliştirmeler ve görev takibi.",
+    "seo_title": "Projeler | Unalisi OS",
+    "seo_desc": "Aktif projelerinizi ve görevlerinizi yönetin ve takip edin."
+  },
+  "Customers": {
+    "seo_title": "Müşteriler | Unalisi OS",
+    "seo_desc": "Müşteri ilişkilerinizi ve firma bilgilerinizi yönetin."
+  },
+  "Proposals": {
+    "seo_title": "Teklifler | Unalisi OS",
+    "seo_desc": "Yapay zeka desteği ile iş teklifleri oluşturun ve yönetin."
+  },
+  "Contracts": {
+    "seo_title": "Sözleşmeler | Unalisi OS",
+    "seo_desc": "İş sözleşmelerinizi ve anlaşmalarınızı yönetin."
+  },
+  "Finance": {
+    "seo_title": "Finans | Unalisi OS",
+    "seo_desc": "Gelir, gider ve finansal işlemlerinizi takip edin."
+  },
+  "Archive": {
+    "title": "Mezarlık",
+    "subtitle": "Pasif durumdaki kayıtları incele veya geri yükle.",
+    "seo_title": "Arşiv | Unalisi OS",
+    "seo_desc": "Arşivlenmiş teklifleri ve müşterileri görüntüleyin ve yönetin."
+  },
+  "Settings": {
+    "seo_title": "Ayarlar | Unalisi OS",
+    "seo_desc": "Hesap ve sistem ayarlarınızı yapılandırın."
+  }
+}

@@ -1,7 +1,20 @@
-import type { NextConfig } from "next";
+import createNextIntlPlugin from 'next-intl/plugin';
 
-const nextConfig: NextConfig = {
-  /* config options here */
+// KRİTİK DÜZELTME: Parantez içine dosya yolunu açıkça yazıyoruz.
+const withNextIntl = createNextIntlPlugin('./i18n.ts');
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // Diğer ayarların buraya gelebilir
+  /* images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co',
+      },
+    ],
+  }, 
+  */
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);
