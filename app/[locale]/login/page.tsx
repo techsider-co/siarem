@@ -1,25 +1,40 @@
 "use client";
 
 import { useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Rocket, Lock, Mail, Loader2 } from "lucide-react";
+import { Lock, Mail, Loader2, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { login } from "./actions";
 import { Link } from "@/navigation";
 
 export default function LoginPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const locale = params.locale as string;
   const [loading, setLoading] = useState(false);
+
+  // 🆕 Plan parametresini al (pricing'den geliyorsa)
+  const planId = searchParams.get("plan");
+  const redirectUrl = searchParams.get("redirect");
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     
     const formData = new FormData(e.currentTarget);
+    
+    // 🆕 Plan ID'yi formData'ya ekle
+    if (planId) {
+      formData.set("planId", planId);
+    }
+    if (redirectUrl) {
+      formData.set("redirect", redirectUrl);
+    }
+    
     const result = await login(formData, locale);
 
     if (result?.error) {
@@ -27,6 +42,11 @@ export default function LoginPage() {
         setLoading(false);
     }
   };
+
+  // Register linkini plan parametresiyle oluştur
+  const registerHref = planId 
+    ? { pathname: "/register" as const, query: { plan: planId } } 
+    : "/register" as const;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:from-slate-900 dark:via-[#020617] dark:to-[#020617]">
@@ -47,8 +67,28 @@ export default function LoginPage() {
                 {/* Light/Dark mode logo */}
                 <img className="w-64 dark:hidden" src="/images/logo-light-clear.png" alt="Logo" />
                 <img className="w-64 hidden dark:block" src="/images/logo-dark-clear.png" alt="Logo" />
-                <p className="text-muted-foreground text-sm mt-2">Yönetim paneline erişim sağlayın.</p>
+                <p className="text-muted-foreground text-sm mt-2">
+                  {planId 
+                    ? "Giriş yapın ve ödemeye devam edin." 
+                    : "Yönetim paneline erişim sağlayın."}
+                </p>
             </div>
+
+            {/* 🆕 Plan Seçili Badge */}
+            {planId && (
+              <div className="mb-6 p-3 rounded-lg bg-primary/5 border border-primary/20 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <CreditCard className="w-4 h-4 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">Plan seçildi</p>
+                  <p className="text-xs text-muted-foreground">Giriş sonrası ödeme sayfasına yönlendirileceksiniz</p>
+                </div>
+                <Badge variant="secondary" className="bg-primary/10 text-primary">
+                  Seçili
+                </Badge>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
@@ -84,16 +124,22 @@ export default function LoginPage() {
                     className="w-full bg-linear-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground border-0 h-11 shadow-lg shadow-primary/25"
                     disabled={loading}
                 >
-                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Giriş Yap"}
+                    {loading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : planId ? (
+                      "Giriş Yap ve Devam Et"
+                    ) : (
+                      "Giriş Yap"
+                    )}
                 </Button>
             </form>
 
-            {/* Register Link */}
+            {/* Register Link - Plan parametresi taşınıyor */}
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
                 Hesabınız yok mu?{" "}
                 <Link
-                  href="/register"
+                  href={registerHref}
                   className="text-primary hover:text-primary/80 font-semibold transition-colors"
                 >
                   Kayıt Olun

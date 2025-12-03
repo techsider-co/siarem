@@ -1,7 +1,9 @@
+// app/[locale]/dashboard/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { useOrganization, canEditData, canDeleteData } from "@/contexts/OrganizationContext";
 import { Link } from "@/navigation";
@@ -20,7 +22,9 @@ import {
   Briefcase,
   Archive,
   Trash2,
-  Info
+  Info,
+  Loader2,
+  Building2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,8 +63,9 @@ interface Proposal {
 
 export default function DashboardPage() {
   const t = useTranslations("Dashboard");
+  const searchParams = useSearchParams();
   const supabase = createClient();
-  const { currentOrg, userRole } = useOrganization();
+  const { currentOrg, userRole, refreshOrganizations, isLoading: orgLoading } = useOrganization();
   const [stats, setStats] = useState<Stats>({
     potential_revenue: 0,
     pending_collection: 0,
@@ -70,6 +75,56 @@ export default function DashboardPage() {
   });
   const [loading, setLoading] = useState(true);
   const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [ensureOrgCalled, setEnsureOrgCalled] = useState(false);
+
+  // Ensure user has an organization (call backend function if needed)
+  const ensureOrganization = useCallback(async () => {
+    if (ensureOrgCalled) return;
+    setEnsureOrgCalled(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Call the ensure function via RPC (if no org exists, it will create one)
+      const { error } = await supabase.rpc('ensure_user_has_organization', {
+        user_uuid: user.id
+      });
+
+      if (error) {
+        console.error('[Dashboard] Error ensuring org:', error);
+      } else {
+        // Refresh organizations after ensuring
+        await refreshOrganizations();
+      }
+    } catch (e) {
+      console.error('[Dashboard] ensureOrganization error:', e);
+    }
+  }, [supabase, refreshOrganizations, ensureOrgCalled]);
+
+  // On mount: If no organization after loading, try to ensure one
+  useEffect(() => {
+    if (!orgLoading && !currentOrg && !ensureOrgCalled) {
+      ensureOrganization();
+    }
+  }, [orgLoading, currentOrg, ensureOrganization, ensureOrgCalled]);
+
+  // Ödeme durumunu kontrol et
+  useEffect(() => {
+    const payment = searchParams.get("payment");
+    if (payment === "success") {
+      toast.success("🎉 Ödeme başarılı! Aboneliğiniz aktifleştirildi.", {
+        duration: 5000,
+      });
+      // Organizasyon bilgilerini yenile (plan güncellendi)
+      refreshOrganizations();
+      // URL'den payment parametresini kaldır
+      window.history.replaceState({}, "", "/dashboard");
+    } else if (payment === "cancelled") {
+      toast.info("Ödeme işlemi iptal edildi.");
+      window.history.replaceState({}, "", "/dashboard");
+    }
+  }, [searchParams, refreshOrganizations]);
 
   const fetchData = async () => {
     // Teklifler
@@ -263,6 +318,32 @@ export default function DashboardPage() {
       isCurrency: false,
     },
   ];
+
+  // Show loading state while organization is being loaded/created
+  if (orgLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-muted-foreground">Organizasyon yükleniyor...</p>
+      </div>
+    );
+  }
+
+  // Show message if no organization (shouldn't happen, but just in case)
+  if (!currentOrg) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <Building2 className="w-12 h-12 text-muted-foreground" />
+        <h2 className="text-xl font-semibold">Organizasyon Bulunamadı</h2>
+        <p className="text-muted-foreground text-center max-w-md">
+          Hesabınız için bir organizasyon oluşturulamamış. Lütfen sayfayı yenileyin veya destek ile iletişime geçin.
+        </p>
+        <Button onClick={() => window.location.reload()}>
+          Sayfayı Yenile
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 p-8">

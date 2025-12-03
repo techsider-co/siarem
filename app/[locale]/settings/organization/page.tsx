@@ -1,10 +1,12 @@
+// settings/organization/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "@/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { useOrganization, canManageMembers } from "@/contexts/OrganizationContext";
+import { useOrganization } from "@/contexts/OrganizationContext";
 import { toast } from "sonner";
+import type { ProductWithPrices } from "@/lib/stripe";
 import {
   Building2,
   Save,
@@ -17,20 +19,47 @@ import {
   X,
   Shield,
   Crown,
+  CreditCard,
+  ExternalLink,
+  Calendar,
+  AlertTriangle,
+  Zap,
+  Rocket,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function OrganizationSettingsPage() {
   const supabase = createClient();
   const router = useRouter();
-  const { currentOrg, userRole, refreshOrganizations } = useOrganization();
+  const { currentOrg, userRole, refreshOrganizations, isLoading: orgLoading } = useOrganization();
   
   const [loading, setLoading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [products, setProducts] = useState<ProductWithPrices[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [billingPeriod, setBillingPeriod] = useState<"month" | "year">("month");
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  
+  // Stripe abonelik bilgileri (doğrudan Stripe'dan çekilecek)
+  const [subscriptionInfo, setSubscriptionInfo] = useState<{
+    currentPeriodEnd: string | null;
+    cancelAtPeriodEnd: boolean;
+    status: string;
+    plan: string;
+    interval?: string;
+    priceId?: string;
+  } | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  
+  // Form State
   const [checkingSlug, setCheckingSlug] = useState(false);
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [originalSlug, setOriginalSlug] = useState("");
@@ -44,8 +73,9 @@ export default function OrganizationSettingsPage() {
 
   // Yetki kontrolü
   const canEdit = userRole === "owner" || userRole === "admin";
+  const isOwner = userRole === "owner";
 
-  // Mevcut org verilerini yükle
+  // Verileri Yükle
   useEffect(() => {
     if (currentOrg) {
       setForm({
@@ -55,83 +85,107 @@ export default function OrganizationSettingsPage() {
         website: "",
       });
       setOriginalSlug(currentOrg.slug || "");
-      
-      // Website'i ayrıca çek (context'te olmayabilir)
       fetchOrgDetails();
     }
   }, [currentOrg?.id]);
 
-  const fetchOrgDetails = async () => {
+  // Stripe ürünlerini çek
+  useEffect(() => {
+    fetchStripeProducts();
+  }, []);
+
+  // Stripe abonelik bilgilerini çek
+  useEffect(() => {
+    if (currentOrg?.id) {
+      fetchSubscriptionInfo();
+    }
+  }, [currentOrg?.id]);
+
+  const fetchSubscriptionInfo = async () => {
     if (!currentOrg) return;
     
+    setSubscriptionLoading(true);
+    try {
+      const res = await fetch("/api/stripe/subscription-info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId: currentOrg.id }),
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setSubscriptionInfo(data);
+        
+        // Aktif aboneliğin interval'ına göre toggle'ı ayarla
+        if (data.interval === 'year' || data.interval === 'month') {
+          setBillingPeriod(data.interval);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch subscription info:", error);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
+
+  const fetchOrgDetails = async () => {
+    if (!currentOrg) return;
     const { data } = await supabase
       .from("organizations")
       .select("website")
       .eq("id", currentOrg.id)
       .single();
-    
-    if (data) {
-      setForm(prev => ({ ...prev, website: data.website || "" }));
+    if (data) setForm(prev => ({ ...prev, website: data.website || "" }));
+  };
+
+  const fetchStripeProducts = async () => {
+    setProductsLoading(true);
+    try {
+      const res = await fetch("/api/stripe/products");
+      const data = await res.json();
+      if (data.products) {
+        setProducts(data.products);
+      }
+    } catch (error) {
+      console.error("Failed to fetch products:", error);
+    } finally {
+      setProductsLoading(false);
     }
   };
 
-  // Slug benzersizlik kontrolü (debounced)
+  // Slug Kontrolü
   useEffect(() => {
     if (!form.slug || form.slug === originalSlug) {
       setSlugAvailable(null);
       return;
     }
-
     const timer = setTimeout(async () => {
       setCheckingSlug(true);
-      
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("organizations")
         .select("id")
         .eq("slug", form.slug.toLowerCase())
         .neq("id", currentOrg?.id || "")
         .single();
-      
       setSlugAvailable(!data);
       setCheckingSlug(false);
     }, 500);
-
     return () => clearTimeout(timer);
   }, [form.slug, originalSlug]);
 
-  // Slug formatla (sadece küçük harf, sayı ve tire)
   const handleSlugChange = (value: string) => {
-    const formatted = value
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "");
-    
+    const formatted = value.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
     setForm(prev => ({ ...prev, slug: formatted }));
   };
 
-  // Kaydet
+  // GENEL AYARLARI KAYDET
   const handleSave = async () => {
     if (!currentOrg || !canEdit) return;
-    
-    // Validasyonlar
-    if (!form.name.trim()) {
-      toast.error("Organizasyon adı zorunludur");
-      return;
-    }
-    
-    if (!form.slug.trim()) {
-      toast.error("URL kısayolu zorunludur");
-      return;
-    }
-    
-    if (form.slug !== originalSlug && slugAvailable === false) {
-      toast.error("Bu URL kısayolu zaten kullanılıyor");
-      return;
-    }
+    if (!form.name.trim()) return toast.error("Organizasyon adı zorunludur");
+    if (!form.slug.trim()) return toast.error("URL kısayolu zorunludur");
+    if (form.slug !== originalSlug && slugAvailable === false) return toast.error("URL kısayolu kullanımda");
 
     setLoading(true);
-
     const { error } = await supabase
       .from("organizations")
       .update({
@@ -143,294 +197,639 @@ export default function OrganizationSettingsPage() {
       })
       .eq("id", currentOrg.id);
 
-    if (error) {
-      toast.error("Ayarlar kaydedilemedi: " + error.message);
-    } else {
-      toast.success("Organizasyon ayarları güncellendi! ✨");
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Ayarlar güncellendi");
       setOriginalSlug(form.slug);
       await refreshOrganizations();
     }
-
     setLoading(false);
   };
 
-  // Erişim kontrolü
-  if (!currentOrg) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center text-muted-foreground">
-          <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-          <p>Organizasyon seçilmedi</p>
-        </div>
-      </div>
-    );
-  }
+  // STRIPE PORTAL YÖNLENDİRME
+  const handleOpenPortal = async () => {
+    setPortalLoading(true);
+    try {
+      const response = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId: currentOrg?.id }),
+      });
+      const data = await response.json();
+      if (data.url) window.location.href = data.url;
+      else throw new Error(data.error || "Portal açılamadı");
+    } catch (error: any) {
+      toast.error("Fatura portalı açılamadı: " + error.message);
+    } finally {
+      setPortalLoading(false);
+    }
+  };
 
-  if (!canEdit) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center text-muted-foreground">
-          <Shield className="w-12 h-12 mx-auto mb-4 opacity-50 text-red-400" />
-          <p className="text-lg font-medium text-foreground mb-2">Erişim Reddedildi</p>
-          <p>Bu sayfayı görüntülemek için yönetici veya sahip yetkisi gereklidir.</p>
-        </div>
-      </div>
-    );
-  }
+  // YENİ PLAN SEÇİMİ - Checkout'a yönlendir veya mevcut aboneliği güncelle
+  const handleUpgrade = async (priceId: string) => {
+    if (!currentOrg || !priceId) return;
 
-  // Plan badge'i
-  const PlanBadge = () => {
-    const plans: Record<string, { label: string; className: string }> = {
-      free: { label: "Ücretsiz", className: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" },
-      starter: { label: "Başlangıç", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
-      pro: { label: "Profesyonel", className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" },
-      enterprise: { label: "Kurumsal", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
+    setCheckoutLoading(priceId);
+
+    try {
+      const response = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          priceId,
+          organizationId: currentOrg.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Ödeme başlatılamadı");
+      }
+
+      // Farklı response tiplerine göre işlem yap
+      if (data.type === 'subscription_updated') {
+        // Mevcut abonelik güncellendi - toast göster ve context'i yenile
+        toast.success(data.message || "Planınız başarıyla güncellendi!");
+        await refreshOrganizations();
+        
+        // Sayfayı yeniden yükle veya redirect et
+        if (data.redirectUrl) {
+          window.location.href = data.redirectUrl;
+        }
+      } else if (data.type === 'checkout_session' && data.url) {
+        // Yeni abonelik için Stripe Checkout'a yönlendir
+        window.location.href = data.url;
+      } else if (data.url) {
+        // Fallback: eski format
+        window.location.href = data.url;
+      }
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setCheckoutLoading(null);
+    }
+  };
+
+  // Fiyat formatla
+  const formatPrice = (amount: number | null, currency: string = "usd") => {
+    if (!amount) return "Ücretsiz";
+    return new Intl.NumberFormat("tr-TR", {
+      style: "currency",
+      currency: currency.toUpperCase(),
+      minimumFractionDigits: 0,
+    }).format(amount / 100);
+  };
+
+  // Tarih formatla
+  const formatDate = (date: string | null) => {
+    if (!date) return "Süresiz";
+    return new Date(date).toLocaleDateString("tr-TR", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  // Plan Badge Component
+  const PlanBadge = ({ plan }: { plan: string }) => {
+    const styles: Record<string, { label: string; className: string; icon: any }> = {
+      free: { label: "Ücretsiz", className: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300", icon: Zap },
+      starter: { label: "Başlangıç", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400", icon: Rocket },
+      pro: { label: "Profesyonel", className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400", icon: Sparkles },
+      enterprise: { label: "Kurumsal", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", icon: Crown },
     };
-    
-    const plan = plans[currentOrg.subscription_plan] || plans.free;
-    
+    const config = styles[plan] || styles.free;
+    const Icon = config.icon;
     return (
-      <Badge className={plan.className}>
-        {plan.label}
+      <Badge className={`${config.className} gap-1`}>
+        <Icon className="w-3 h-3" />
+        {config.label}
       </Badge>
     );
   };
 
+  // LOADING STATE
+  if (orgLoading || !currentOrg) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // YETKİ YOKSA
+  if (!canEdit) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 text-center p-8">
+        <Shield className="w-16 h-16 text-muted-foreground/50 mb-4" />
+        <h2 className="text-xl font-semibold">Erişim Kısıtlı</h2>
+        <p className="text-muted-foreground">Bu sayfayı sadece yöneticiler görebilir.</p>
+      </div>
+    );
+  }
+
+  // Mevcut aboneliğin price ID'sini al (önce subscriptionInfo'dan, yoksa currentOrg'dan)
+  const activePriceId = subscriptionInfo?.priceId || currentOrg.stripe_price_id;
+  
+  // Mevcut plan detaylarını bul - önce stripe_price_id ile eşleştir
+  const currentProduct = products.find(product => 
+    product.prices.some(price => price.id === activePriceId)
+  ) || products.find(p => {
+    // Fallback: plan ismi ile eşleştir
+    const productName = p.name.toLowerCase();
+    const currentPlan = currentOrg.subscription_plan?.toLowerCase() || 'free';
+    return productName.includes(currentPlan) || 
+           (currentPlan === 'starter' && productName.includes('başlangıç')) ||
+           (currentPlan === 'pro' && productName.includes('profesyonel')) ||
+           (currentPlan === 'enterprise' && productName.includes('kurumsal'));
+  });
+  
+  // Mevcut aktif fiyatı bul - önce price ID ile, yoksa interval ile
+  const currentPrice = currentProduct?.prices.find(p => p.id === activePriceId) 
+    || currentProduct?.prices.find(p => p.interval === (subscriptionInfo?.interval || billingPeriod));
+
   return (
-    <div className="space-y-8 p-8 max-w-4xl mx-auto">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-6 p-6 md:p-8 max-w-5xl mx-auto">
+      {/* BAŞLIK VE ÖZET */}
+      <div className="flex flex-col md:flex-row justify-between items-start gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
             <Building2 className="h-8 w-8 text-primary" />
             Organizasyon Ayarları
           </h1>
-          <p className="text-muted-foreground mt-1">
-            {currentOrg.name} organizasyonunun temel ayarlarını yönetin.
+          <p className="text-muted-foreground">
+            {currentOrg.name} organizasyonunu yönetin.
           </p>
         </div>
-        <Button
-          onClick={handleSave}
-          disabled={loading || (form.slug !== originalSlug && slugAvailable === false)}
-          className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground shadow-lg shadow-primary/25"
-        >
-          {loading ? (
-            <>
-              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-              Kaydediliyor...
-            </>
-          ) : (
-            <>
-              <Save className="mr-2 h-4 w-4" />
-              Değişiklikleri Kaydet
-            </>
-          )}
-        </Button>
-      </div>
-
-      {/* ROL BADGE */}
-      <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border">
-        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-lg shadow-md">
-          {currentOrg.logo_url ? (
-            <img
-              src={currentOrg.logo_url}
-              alt={currentOrg.name}
-              className="w-full h-full object-cover rounded-lg"
-            />
-          ) : (
-            currentOrg.name.charAt(0).toUpperCase()
-          )}
-        </div>
-        <div className="flex-1">
-          <div className="font-semibold text-foreground">{currentOrg.name}</div>
-          <div className="flex items-center gap-2 mt-1">
-            <PlanBadge />
-            <Badge 
-              variant="outline" 
-              className={userRole === "owner" 
-                ? "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700" 
-                : "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-700"
-              }
-            >
-              {userRole === "owner" ? (
-                <>
-                  <Crown className="w-3 h-3 mr-1" /> Sahip
-                </>
-              ) : (
-                <>
-                  <Shield className="w-3 h-3 mr-1" /> Yönetici
-                </>
-              )}
-            </Badge>
+        
+        <div className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg shadow-sm">
+          <div className="w-10 h-10 rounded-md bg-linear-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-lg overflow-hidden">
+            {currentOrg.logo_url ? (
+              <img src={currentOrg.logo_url} className="w-full h-full object-cover" alt="" />
+            ) : (
+              currentOrg.name[0]
+            )}
+          </div>
+          <div>
+            <div className="font-semibold text-sm">{currentOrg.name}</div>
+            <div className="flex gap-2 text-xs">
+              <span className="text-muted-foreground">{userRole === 'owner' ? 'Sahip' : 'Yönetici'}</span>
+              <span className="text-primary font-medium">• {currentOrg.subscription_plan?.toUpperCase() || 'FREE'}</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* FORM */}
-      <div className="bg-card/50 backdrop-blur-sm border border-border p-8 rounded-2xl shadow-md space-y-8">
-        {/* Temel Bilgiler */}
-        <div>
-          <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
-            <Building2 className="text-primary" />
-            Temel Bilgiler
-          </h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Organizasyon Adı */}
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">
-                Organizasyon Adı <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                className="bg-white dark:bg-slate-950 border-border text-foreground"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Örn: Unalisi Technologies"
-              />
-            </div>
+      <Tabs defaultValue="general" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+          <TabsTrigger value="general">Genel Bilgiler</TabsTrigger>
+          <TabsTrigger value="billing">Abonelik ve Faturalar</TabsTrigger>
+        </TabsList>
 
-            {/* URL Kısayolu (Slug) */}
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">
-                URL Kısayolu <span className="text-red-500">*</span>
-              </Label>
-              <div className="relative">
-                <Input
-                  className="bg-white dark:bg-slate-950 border-border text-foreground pr-10"
-                  value={form.slug}
-                  onChange={(e) => handleSlugChange(e.target.value)}
-                  placeholder="unalisi-tech"
-                />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  {checkingSlug && (
-                    <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />
+        {/* --- SEKME 1: GENEL BİLGİLER --- */}
+        <TabsContent value="general" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Profil Bilgileri</CardTitle>
+              <CardDescription>Organizasyonunuzun görünen yüzünü düzenleyin.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>Organizasyon Adı</Label>
+                  <Input 
+                    value={form.name} 
+                    onChange={e => setForm({...form, name: e.target.value})} 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>URL Kısayolu (Slug)</Label>
+                  <div className="relative">
+                    <Input 
+                      value={form.slug} 
+                      onChange={e => handleSlugChange(e.target.value)} 
+                      className="pr-10"
+                    />
+                    <div className="absolute right-3 top-2.5">
+                      {checkingSlug ? (
+                        <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />
+                      ) : slugAvailable ? (
+                        <Check className="w-4 h-4 text-green-500" />
+                      ) : (
+                        form.slug !== originalSlug && <X className="w-4 h-4 text-red-500" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <Separator />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>Logo URL</Label>
+                  <Input 
+                    value={form.logo_url} 
+                    onChange={e => setForm({...form, logo_url: e.target.value})} 
+                    placeholder="https://..."
+                  />
+                  {form.logo_url && (
+                    <div className="mt-2 w-12 h-12 rounded-lg border overflow-hidden">
+                      <img src={form.logo_url} alt="Logo" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    </div>
                   )}
-                  {!checkingSlug && slugAvailable === true && form.slug !== originalSlug && (
-                    <Check className="w-4 h-4 text-green-500" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Web Sitesi</Label>
+                  <Input 
+                    value={form.website} 
+                    onChange={e => setForm({...form, website: e.target.value})} 
+                    placeholder="https://..."
+                  />
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="bg-muted/50 border-t flex justify-end py-4">
+              <Button onClick={handleSave} disabled={loading}>
+                {loading && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+                Değişiklikleri Kaydet
+              </Button>
+            </CardFooter>
+          </Card>
+
+          {/* TEHLİKELİ BÖLGE - Sadece Owner Görür */}
+          {isOwner && (
+            <Card className="border-red-200 dark:border-red-900">
+              <CardHeader>
+                <CardTitle className="text-red-600">Tehlikeli Bölge</CardTitle>
+                <CardDescription>Bu işlemler geri alınamaz.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between p-4 border border-red-100 dark:border-red-900/30 rounded-lg bg-red-50 dark:bg-red-950/10">
+                  <div>
+                    <h4 className="font-medium text-red-900 dark:text-red-200">Organizasyonu Sil</h4>
+                    <p className="text-sm text-red-700 dark:text-red-300">Tüm veriler, teklifler ve üyeler kalıcı olarak silinir.</p>
+                  </div>
+                  <Button variant="destructive" disabled>Sil</Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* --- SEKME 2: ABONELİK VE FATURALAR --- */}
+        <TabsContent value="billing" className="space-y-6 mt-6">
+          
+          {/* ÖDEME HATASI UYARISI */}
+          {(subscriptionInfo?.status === 'past_due' || currentOrg.subscription_status === 'past_due') && (
+            <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-lg">
+              <AlertTriangle className="h-6 w-6 text-red-600 shrink-0" />
+              <div className="flex-1">
+                <p className="font-medium text-red-900 dark:text-red-200">Ödeme Alınamadı</p>
+                <p className="text-sm text-red-700 dark:text-red-300">
+                  Son ödemeniz başarısız oldu. Aboneliğinizin devam etmesi için lütfen ödeme yönteminizi güncelleyin.
+                </p>
+              </div>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={handleOpenPortal}
+                disabled={portalLoading}
+              >
+                {portalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Ödeme Yöntemini Güncelle"}
+              </Button>
+            </div>
+          )}
+
+          {/* MEVCUT PLAN KARTI */}
+          <Card className="border-primary/20 shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+            
+            <CardHeader>
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    Mevcut Abonelik
+                    <PlanBadge plan={currentOrg.subscription_plan || 'free'} />
+                  </CardTitle>
+                  <CardDescription className="mt-2">
+                    Abonelik durumunuz ve yenilenme bilgileri.
+                  </CardDescription>
+                </div>
+                {/* Stripe Portal Butonu */}
+                <Button 
+                  variant="outline" 
+                  onClick={handleOpenPortal} 
+                  disabled={portalLoading || currentOrg.subscription_plan === 'free'}
+                  className="hidden md:flex"
+                >
+                  {portalLoading ? (
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CreditCard className="mr-2 h-4 w-4" />
                   )}
-                  {!checkingSlug && slugAvailable === false && form.slug !== originalSlug && (
-                    <X className="w-4 h-4 text-red-500" />
+                  Fatura ve Ödeme Yöntemlerini Yönet
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-6 md:grid-cols-3">
+                <div className="space-y-1">
+                  <span className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" /> Plan
+                  </span>
+                  <p className="text-lg font-medium">
+                    {currentProduct?.name || "Ücretsiz"}
+                  </p>
+                  {currentPrice && currentPrice.unit_amount && currentPrice.unit_amount > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      {formatPrice(currentPrice.unit_amount, currentPrice.currency)}/{currentPrice.interval === 'month' ? 'ay' : 'yıl'}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <span className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Calendar className="w-3 h-3" /> 
+                    {(subscriptionInfo?.cancelAtPeriodEnd || currentOrg.cancel_at_period_end) 
+                      ? "Bitiş Tarihi" 
+                      : "Sonraki Yenileme"
+                    }
+                  </span>
+                  {subscriptionLoading ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">Yükleniyor...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-lg font-medium">
+                        {(subscriptionInfo?.currentPeriodEnd || currentOrg.current_period_end)
+                          ? formatDate(subscriptionInfo?.currentPeriodEnd || currentOrg.current_period_end)
+                          : (currentOrg.subscription_plan === 'free' || subscriptionInfo?.plan === 'free')
+                            ? "Süresiz" 
+                            : "Abonelik yok"
+                        }
+                      </p>
+                      {(subscriptionInfo?.cancelAtPeriodEnd || currentOrg.cancel_at_period_end) ? (
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          Bu tarihte ücretsiz plana geçilecek
+                        </p>
+                      ) : (subscriptionInfo?.currentPeriodEnd || currentOrg.current_period_end) && (
+                        <p className="text-xs text-green-600 dark:text-green-400">
+                          Otomatik yenilenecek
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <span className="text-sm text-muted-foreground flex items-center gap-1">
+                    <CreditCard className="w-3 h-3" /> Durum
+                  </span>
+                  {subscriptionLoading ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <>
+                      {(() => {
+                        const status = subscriptionInfo?.status || currentOrg.subscription_status;
+                        const cancelAtPeriodEnd = subscriptionInfo?.cancelAtPeriodEnd || currentOrg.cancel_at_period_end;
+                        const periodEnd = subscriptionInfo?.currentPeriodEnd || currentOrg.current_period_end;
+                        
+                        // Ödeme başarısız
+                        if (status === 'past_due' || status === 'unpaid') {
+                          return (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                                <span className="font-medium text-red-600 dark:text-red-400">Ödeme Alınamadı</span>
+                              </div>
+                              <p className="text-xs text-red-500 flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" />
+                                Ödeme yönteminizi güncelleyin
+                              </p>
+                            </div>
+                          );
+                        }
+                        
+                        // İptal edilecek (ama hala aktif)
+                        if (cancelAtPeriodEnd && status === 'active') {
+                          return (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-amber-500" />
+                                <span className="font-medium text-amber-600 dark:text-amber-400">İptal Edilecek</span>
+                              </div>
+                              {periodEnd && (
+                                <p className="text-xs text-amber-600 dark:text-amber-400">
+                                  {formatDate(periodEnd)} tarihinde sona erecek
+                                </p>
+                              )}
+                            </div>
+                          );
+                        }
+                        
+                        // İptal edildi
+                        if (status === 'canceled') {
+                          return (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-gray-400" />
+                                <span className="font-medium text-gray-600 dark:text-gray-400">İptal Edildi</span>
+                              </div>
+                            </div>
+                          );
+                        }
+                        
+                        // Deneme süresi
+                        if (status === 'trialing') {
+                          return (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                <span className="font-medium text-blue-600 dark:text-blue-400">Deneme Süresi</span>
+                              </div>
+                              {periodEnd && (
+                                <p className="text-xs text-blue-600 dark:text-blue-400">
+                                  {formatDate(periodEnd)} tarihinde sona erecek
+                                </p>
+                              )}
+                            </div>
+                          );
+                        }
+                        
+                        // Aktif
+                        if (status === 'active') {
+                          return (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-green-500" />
+                                <span className="font-medium text-green-600 dark:text-green-400">Aktif</span>
+                              </div>
+                            </div>
+                          );
+                        }
+                        
+                        // Ücretsiz / Varsayılan
+                        return (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-gray-300" />
+                              <span className="font-medium">Ücretsiz</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </>
                   )}
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Sadece küçük harf, rakam ve tire kullanılabilir.
-              </p>
-              {slugAvailable === false && form.slug !== originalSlug && (
-                <p className="text-xs text-red-500">
-                  Bu URL kısayolu zaten kullanılıyor.
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
 
-        <Separator className="bg-border" />
-
-        {/* Marka & İletişim */}
-        <div>
-          <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
-            <Globe className="text-secondary" />
-            Marka & İletişim
-          </h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Logo URL */}
-            <div className="space-y-2">
-              <Label className="text-muted-foreground flex items-center gap-2">
-                <Image className="w-4 h-4" />
-                Logo URL
-              </Label>
-              <Input
-                className="bg-white dark:bg-slate-950 border-border text-foreground"
-                value={form.logo_url}
-                onChange={(e) => setForm({ ...form, logo_url: e.target.value })}
-                placeholder="https://example.com/logo.png"
-              />
-              <p className="text-xs text-muted-foreground">
-                Logo görüntüsü için URL girin (önerilen: 256x256px)
-              </p>
-              
-              {/* Logo Önizleme */}
-              {form.logo_url && (
-                <div className="mt-3 p-4 bg-muted/50 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-2">Önizleme:</p>
-                  <div className="w-16 h-16 rounded-lg bg-white dark:bg-slate-900 border border-border flex items-center justify-center overflow-hidden">
-                    <img
-                      src={form.logo_url}
-                      alt="Logo önizleme"
-                      className="w-full h-full object-contain"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
+              {/* Plan Özellikleri */}
+              {currentProduct?.features && currentProduct.features.length > 0 && (
+                <div className="mt-6 pt-6 border-t">
+                  <p className="text-sm font-medium mb-3">Plan Özellikleri:</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {currentProduct.features.map((feature, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Check className="w-4 h-4 text-green-500 shrink-0" />
+                        <span>{feature}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
-            </div>
-
-            {/* Website */}
-            <div className="space-y-2">
-              <Label className="text-muted-foreground flex items-center gap-2">
-                <Link2 className="w-4 h-4" />
-                Web Sitesi
-              </Label>
-              <Input
-                className="bg-white dark:bg-slate-950 border-border text-foreground"
-                value={form.website}
-                onChange={(e) => setForm({ ...form, website: e.target.value })}
-                placeholder="https://unalisi.dev"
-              />
-            </div>
-          </div>
-        </div>
-
-        <Separator className="bg-border" />
-
-        {/* Abonelik Bilgisi (Salt Okunur) */}
-        <div>
-          <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
-            💎 Abonelik
-          </h3>
-          
-          <div className="p-4 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-xl border border-primary/20">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Mevcut Plan</p>
-                <p className="text-xl font-bold text-foreground mt-1 flex items-center gap-2">
-                  <PlanBadge />
-                </p>
-              </div>
-              <Button variant="outline" disabled>
-                Planı Yükselt (Yakında)
+              
+              {/* Mobil için Portal Butonu */}
+              <Button 
+                variant="outline" 
+                onClick={handleOpenPortal} 
+                disabled={portalLoading || currentOrg.subscription_plan === 'free'}
+                className="w-full mt-6 md:hidden"
+              >
+                Fatura ve Ödemeleri Yönet
               </Button>
-            </div>
-            <p className="text-xs text-muted-foreground mt-4">
-              Abonelik yönetimi yakında aktif olacaktır.
-            </p>
-          </div>
-        </div>
-      </div>
+            </CardContent>
+          </Card>
 
-      {/* DANGER ZONE */}
-      {userRole === "owner" && (
-        <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 p-6 rounded-2xl">
-          <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">
-            Tehlikeli Bölge
-          </h3>
-          <p className="text-sm text-red-600/70 dark:text-red-400/70 mb-4">
-            Bu işlemler geri alınamaz. Dikkatli olun.
-          </p>
-          <Button 
-            variant="outline" 
-            className="border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30"
-            disabled
-          >
-            Organizasyonu Sil (Yakında)
-          </Button>
-        </div>
-      )}
+          {/* PLAN YÜKSELTME ALANI */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Planını Değiştir</h3>
+              
+              {/* Billing Period Toggle */}
+              <div className="inline-flex items-center p-1 rounded-full bg-muted border border-border">
+                <button
+                  onClick={() => setBillingPeriod("month")}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                    billingPeriod === "month" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  Aylık
+                </button>
+                <button
+                  onClick={() => setBillingPeriod("year")}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                    billingPeriod === "year" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  Yıllık <span className="text-green-500 ml-1">-20%</span>
+                </button>
+              </div>
+            </div>
+
+            {productsLoading ? (
+              <div className="flex items-center justify-center h-48">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : products.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <p>Henüz plan tanımlanmamış</p>
+              </div>
+            ) : (
+              <div className={`grid gap-4 ${products.length <= 3 ? 'md:grid-cols-3' : 'md:grid-cols-4'}`}>
+                {products.map((product) => {
+                  // Seçili periyoda göre fiyatı bul
+                  const price = product.prices.find(p => p.interval === billingPeriod);
+                  if (!price) return null;
+                  
+                  // Mevcut plan kontrolü - stripe_price_id ile eşleştir
+                  const isCurrentPlan = activePriceId === price.id;
+                  
+                  const productNameLower = product.name.toLowerCase();
+                  const isPopular = productNameLower.includes('pro') || productNameLower.includes('profesyonel');
+                  const amount = price.unit_amount || 0;
+
+                  return (
+                    <Card 
+                      key={product.id}
+                      className={`relative transition-all duration-300 ${
+                        isCurrentPlan ? 'border-primary ring-1 ring-primary' : ''
+                      } ${isPopular ? 'bg-primary/5' : ''}`}
+                    >
+                      {isPopular && (
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                          <Badge className="bg-primary text-primary-foreground">Popüler</Badge>
+                        </div>
+                      )}
+                      {isCurrentPlan && (
+                        <div className="absolute -top-3 right-3">
+                          <Badge variant="outline" className="bg-background">Mevcut</Badge>
+                        </div>
+                      )}
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base">{product.name}</CardTitle>
+                        <CardDescription className="text-xs line-clamp-2 h-8">
+                          {product.description}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pb-2">
+                        <div className="text-2xl font-bold">
+                          {formatPrice(amount, price.currency)}
+                          <span className="text-sm font-normal text-muted-foreground">
+                            /{billingPeriod === "year" ? "yıl" : "ay"}
+                          </span>
+                        </div>
+                        {product.features.length > 0 && (
+                          <ul className="mt-3 space-y-1 text-xs">
+                            {product.features.slice(0, 4).map((feature, idx) => (
+                              <li key={idx} className="flex items-start gap-1 text-muted-foreground">
+                                <Check className="w-3 h-3 text-green-500 mt-0.5 shrink-0" />
+                                <span className="line-clamp-1">{feature}</span>
+                              </li>
+                            ))}
+                            {product.features.length > 4 && (
+                              <li className="text-muted-foreground/60 text-xs">
+                                +{product.features.length - 4} özellik daha
+                              </li>
+                            )}
+                          </ul>
+                        )}
+                      </CardContent>
+                      <CardFooter>
+                        <Button 
+                          className="w-full" 
+                          variant={isPopular ? "default" : "outline"}
+                          onClick={() => handleUpgrade(price.id)}
+                          disabled={isCurrentPlan || checkoutLoading === price.id}
+                        >
+                          {checkoutLoading === price.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : isCurrentPlan ? (
+                            "Mevcut Plan"
+                          ) : (
+                            "Yükselt"
+                          )}
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
-

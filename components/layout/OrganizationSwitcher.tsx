@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { createClient } from "@/utils/supabase/client";
 import { toast } from "sonner";
@@ -16,6 +16,8 @@ import {
   User,
   Eye,
   RefreshCw,
+  Lock,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +38,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Link } from "@/navigation";
+import { Link, useRouter } from "@/navigation";
+import { canCreateOrganization, getOrganizationLimit, getOrganizationLimitPrompt } from "@/utils/limits";
 
 // Rol badge'leri
 const RoleBadge = ({ role }: { role: string }) => {
@@ -106,6 +109,7 @@ const PlanBadge = ({ plan }: { plan: string }) => {
 
 export function OrganizationSwitcher() {
   const supabase = createClient();
+  const router = useRouter();
   const { currentOrg, userRole, organizations, isLoading, switchOrganization, refreshOrganizations } = useOrganization();
   const [open, setOpen] = useState(false);
   
@@ -118,6 +122,22 @@ export function OrganizationSwitcher() {
   });
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [checkingSlug, setCheckingSlug] = useState(false);
+
+  // Calculate organization limit status
+  const orgLimitStatus = useMemo(() => {
+    // Count organizations where user is owner
+    const ownedOrgsCount = organizations.filter(org => org.owner_id === currentOrg?.owner_id).length;
+    const currentPlan = currentOrg?.subscription_plan || 'free';
+    const canCreate = canCreateOrganization(currentPlan, ownedOrgsCount);
+    const limit = getOrganizationLimit(currentPlan);
+    
+    return {
+      canCreate,
+      ownedOrgsCount,
+      limit,
+      isUnlimited: limit === -1,
+    };
+  }, [organizations, currentOrg]);
 
   // Slug formatla (sadece küçük harf, sayı ve tire)
   const handleSlugChange = (value: string) => {
@@ -170,6 +190,19 @@ export function OrganizationSwitcher() {
   // Yeni organizasyon oluştur
   const handleCreateOrganization = async () => {
     console.log("handleCreateOrganization çağrıldı", { newOrgForm, slugAvailable });
+
+    // CHECK ORGANIZATION LIMIT FIRST
+    if (!orgLimitStatus.canCreate) {
+      const prompt = getOrganizationLimitPrompt(currentOrg?.subscription_plan || 'free');
+      toast.error(prompt.description, {
+        action: {
+          label: "Planı Yükselt",
+          onClick: () => router.push("/settings/organization"),
+        },
+      });
+      setCreateDialogOpen(false);
+      return;
+    }
     
     if (!newOrgForm.name.trim() || !newOrgForm.slug.trim()) {
       toast.error("Organizasyon adı ve URL kısayolu zorunludur");
@@ -512,16 +545,33 @@ export function OrganizationSwitcher() {
         <DropdownMenuSeparator className="bg-border" />
 
         {/* Yeni Org Oluştur */}
-        <DropdownMenuItem 
-          className="cursor-pointer hover:bg-accent focus:bg-accent text-primary"
-          onClick={() => {
-            setOpen(false);
-            setCreateDialogOpen(true);
-          }}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          <span>Yeni Organizasyon</span>
-        </DropdownMenuItem>
+        {orgLimitStatus.canCreate ? (
+          <DropdownMenuItem 
+            className="cursor-pointer hover:bg-accent focus:bg-accent text-primary"
+            onClick={() => {
+              setOpen(false);
+              setCreateDialogOpen(true);
+            }}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            <span>Yeni Organizasyon</span>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem 
+            className="cursor-pointer hover:bg-accent focus:bg-accent text-muted-foreground"
+            onClick={() => {
+              setOpen(false);
+              router.push("/settings/organization");
+            }}
+          >
+            <Lock className="w-4 h-4 mr-2" />
+            <span>Yeni Organizasyon</span>
+            <Badge variant="secondary" className="ml-auto text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+              <Sparkles className="w-3 h-3 mr-1" />
+              Yükselt
+            </Badge>
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
 

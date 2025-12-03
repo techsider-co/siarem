@@ -1,16 +1,44 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useRef, ReactNode, useMemo } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { PLANS, type PlanId, type PlanFeatures, type PlanLimits } from "@/config/subscriptions";
 
 // Tipler
+export interface OrganizationFeatures {
+  smtp: boolean;
+  removeBranding: boolean;
+  apiAccess: boolean;
+  prioritySupport: boolean;
+  customDomain: boolean;
+  whiteLabel: boolean;
+  advancedAnalytics: boolean;
+}
+
+export interface OrganizationLimits {
+  maxOrganizations: number;
+  maxUsers: number;
+  maxProjects: number;
+  maxCustomers: number;
+  maxProposals: number;
+}
+
 export interface Organization {
   id: string;
   name: string;
   slug: string;
   logo_url: string | null;
-  subscription_plan: string;
+  subscription_plan: PlanId;
   subscription_status: string;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  stripe_price_id: string | null;
+  billing_cycle: 'month' | 'year' | null;
+  billing_currency: 'usd' | 'try';
+  trial_ends_at: string | null;
+  is_trial_used: boolean;
+  features: OrganizationFeatures;
+  usage_limits: OrganizationLimits;
   owner_id: string;
 }
 
@@ -29,6 +57,14 @@ interface OrganizationContextType {
   isLoading: boolean;
   switchOrganization: (orgId: string) => Promise<void>;
   refreshOrganizations: () => Promise<void>;
+  // Plan helpers
+  isFreePlan: boolean;
+  isPaidPlan: boolean;
+  isTrialing: boolean;
+  trialDaysRemaining: number;
+  hasFeature: (feature: keyof OrganizationFeatures) => boolean;
+  getLimit: (limit: keyof OrganizationLimits) => number;
+  checkLimit: (limit: keyof OrganizationLimits, currentCount: number) => boolean;
 }
 
 const OrganizationContext = createContext<OrganizationContextType | undefined>(undefined);
@@ -64,7 +100,6 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       }
 
       // Kullanıcının üye olduğu organizasyonları çek
-      // NOT: "pending" status'ları da dahil et (davet bekleyenler hariç aktif kullanıcılar)
       const { data: memberships, error: memberError } = await supabase
         .from("org_members")
         .select(`
@@ -77,11 +112,20 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
             logo_url,
             subscription_plan,
             subscription_status,
+            current_period_end,
+            cancel_at_period_end,
+            stripe_price_id,
+            billing_cycle,
+            billing_currency,
+            trial_ends_at,
+            is_trial_used,
+            features,
+            usage_limits,
             owner_id
           )
         `)
         .eq("user_id", user.id)
-        .in("status", ["active", "pending"]); // pending'i de dahil et
+        .in("status", ["active", "pending"]);
 
       console.log("[OrgContext] Memberships query result:", { memberships, memberError });
 
@@ -211,6 +255,36 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Memoized plan helpers
+  const planHelpers = useMemo(() => {
+    const plan = (currentOrg?.subscription_plan || 'free') as PlanId;
+    const planConfig = PLANS[plan] || PLANS.free;
+    const features = currentOrg?.features || planConfig.features;
+    const limits = currentOrg?.usage_limits || planConfig.limits;
+
+    // Calculate trial days remaining
+    let trialDaysRemaining = 0;
+    if (currentOrg?.trial_ends_at && currentOrg?.subscription_status === 'trialing') {
+      const trialEnd = new Date(currentOrg.trial_ends_at);
+      const now = new Date();
+      trialDaysRemaining = Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+    }
+
+    return {
+      isFreePlan: plan === 'free',
+      isPaidPlan: plan !== 'free',
+      isTrialing: currentOrg?.subscription_status === 'trialing',
+      trialDaysRemaining,
+      hasFeature: (feature: keyof OrganizationFeatures) => features[feature] ?? false,
+      getLimit: (limit: keyof OrganizationLimits) => limits[limit] ?? 0,
+      checkLimit: (limit: keyof OrganizationLimits, currentCount: number) => {
+        const limitValue = limits[limit];
+        if (limitValue === -1) return true; // Unlimited
+        return currentCount < limitValue;
+      },
+    };
+  }, [currentOrg?.subscription_plan, currentOrg?.features, currentOrg?.usage_limits, currentOrg?.trial_ends_at, currentOrg?.subscription_status]);
+
   return (
     <OrganizationContext.Provider
       value={{
@@ -220,6 +294,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         isLoading,
         switchOrganization,
         refreshOrganizations,
+        ...planHelpers,
       }}
     >
       {children}

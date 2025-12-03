@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Rocket, Lock, Mail, User, Loader2, ArrowRight, Sparkles } from "lucide-react";
+import { Rocket, Lock, Mail, User, Loader2, ArrowRight, Sparkles, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { register } from "./actions";
 import { Link } from "@/navigation";
 
@@ -19,6 +20,9 @@ export default function RegisterPage() {
   // URL'den davet bilgilerini al (varsa)
   const inviteEmail = searchParams.get("email");
   const inviteToken = searchParams.get("invite");
+  
+  // 🆕 Plan parametresini al (pricing'den geliyorsa)
+  const planId = searchParams.get("plan");
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -42,6 +46,11 @@ export default function RegisterPage() {
       return;
     }
 
+    // 🆕 Plan ID'yi formData'ya ekle
+    if (planId) {
+      formData.set("planId", planId);
+    }
+
     const result = await register(formData, locale);
 
     if (result?.error) {
@@ -49,6 +58,11 @@ export default function RegisterPage() {
       setLoading(false);
     }
   };
+
+  // Login linkini plan parametresiyle oluştur
+  const loginHref = planId 
+    ? { pathname: "/login" as const, query: { plan: planId } } 
+    : "/login" as const;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-emerald-50 dark:from-slate-900 dark:via-[#020617] dark:to-[#020617]">
@@ -76,9 +90,27 @@ export default function RegisterPage() {
             <p className="text-muted-foreground text-sm mt-2 text-center">
               {inviteEmail 
                 ? "Davet edildiniz! Kayıt olarak ekibe katılın." 
-                : "Yeni bir hesap oluşturarak başlayın."}
+                : planId
+                  ? "Hesabınızı oluşturun, ardından ödemeye geçin."
+                  : "Yeni bir hesap oluşturarak başlayın."}
             </p>
           </div>
+
+          {/* 🆕 Plan Seçili Badge */}
+          {planId && (
+            <div className="mb-6 p-3 rounded-lg bg-primary/5 border border-primary/20 flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <CreditCard className="w-4 h-4 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">Plan seçildi</p>
+                <p className="text-xs text-muted-foreground">Kayıt sonrası ödeme sayfasına yönlendirileceksiniz</p>
+              </div>
+              <Badge variant="secondary" className="bg-primary/10 text-primary">
+                Seçili
+              </Badge>
+            </div>
+          )}
 
           {/* Davet Bilgisi */}
           {inviteEmail && (
@@ -163,18 +195,19 @@ export default function RegisterPage() {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  Hesap Oluştur <ArrowRight className="ml-2 h-4 w-4" />
+                  {planId ? "Hesap Oluştur ve Devam Et" : "Hesap Oluştur"} 
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </>
               )}
             </Button>
           </form>
 
-          {/* Login Link */}
+          {/* Login Link - Plan parametresi taşınıyor */}
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
               Zaten hesabınız var mı?{" "}
               <Link
-                href="/login"
+                href={loginHref}
                 className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 font-semibold transition-colors"
               >
                 Giriş Yapın
@@ -194,4 +227,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-

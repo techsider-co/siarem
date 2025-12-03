@@ -1,10 +1,13 @@
-"use client";
-
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
+import { headers } from "next/headers";
 import { Link } from "@/navigation";
 import { Button } from "@/components/ui/button";
 import { LandingNavbar } from "@/components/landing/LandingNavbar";
 import { LandingFooter } from "@/components/landing/LandingFooter";
+import { PricingSection } from "@/components/landing/PricingSection";
+import { FaqSection } from "@/components/landing/FaqSection";
+import { AnimatedCounter } from "@/components/ui/AnimatedCounter";
+import { getStripeProducts, getCurrencyFromCountry, ProductWithPrices } from "@/lib/stripe";
 import {
   ArrowRight,
   Play,
@@ -13,22 +16,34 @@ import {
   BarChart3,
   FileText,
   FolderKanban,
-  Shield,
   TrendingUp,
-  Check,
   Star,
-  ChevronDown,
   Sparkles,
 } from "lucide-react";
-import { AnimatedCounter } from "@/components/ui/AnimatedCounter";
-import { useState } from "react";
 
-export default function LandingPage() {
-  const t = useTranslations("Landing");
-  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">(
-    "monthly"
-  );
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
+type Props = {
+  params: Promise<{ locale: string }>;
+};
+
+export default async function LandingPage({ params }: Props) {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "Landing" });
+
+  // Kullanıcının ülkesini tespit et ve para birimini belirle
+  const headersList = await headers();
+  const country = headersList.get("x-vercel-ip-country") || 
+                  headersList.get("cf-ipcountry") || 
+                  (locale === 'tr' ? 'TR' : 'US'); // Fallback: locale'den tahmin et
+  
+  const currency = getCurrencyFromCountry(country);
+
+  // Stripe ürünlerini para birimine göre çek
+  let products: ProductWithPrices[] = [];
+  try {
+    products = await getStripeProducts(currency);
+  } catch (error) {
+    console.error("Stripe ürünleri çekilemedi:", error);
+  }
 
   const features = [
     {
@@ -87,51 +102,6 @@ export default function LandingPage() {
     },
   ];
 
-  const plans = [
-    {
-      name: t("plan_starter_name"),
-      price: t("plan_starter_price"),
-      desc: t("plan_starter_desc"),
-      features: [
-        t("plan_starter_f1"),
-        t("plan_starter_f2"),
-        t("plan_starter_f3"),
-        t("plan_starter_f4"),
-        t("plan_starter_f5"),
-      ],
-      popular: false,
-    },
-    {
-      name: t("plan_pro_name"),
-      price: t("plan_pro_price"),
-      desc: t("plan_pro_desc"),
-      features: [
-        t("plan_pro_f1"),
-        t("plan_pro_f2"),
-        t("plan_pro_f3"),
-        t("plan_pro_f4"),
-        t("plan_pro_f5"),
-        t("plan_pro_f6"),
-      ],
-      popular: true,
-    },
-    {
-      name: t("plan_enterprise_name"),
-      price: t("plan_enterprise_price"),
-      desc: t("plan_enterprise_desc"),
-      features: [
-        t("plan_enterprise_f1"),
-        t("plan_enterprise_f2"),
-        t("plan_enterprise_f3"),
-        t("plan_enterprise_f4"),
-        t("plan_enterprise_f5"),
-        t("plan_enterprise_f6"),
-      ],
-      popular: false,
-      isEnterprise: true,
-    },
-  ];
-
   const testimonials = [
     {
       text: t("testimonial_1_text"),
@@ -153,14 +123,6 @@ export default function LandingPage() {
     },
   ];
 
-  const faqs = [
-    { q: t("faq_1_q"), a: t("faq_1_a") },
-    { q: t("faq_2_q"), a: t("faq_2_a") },
-    { q: t("faq_3_q"), a: t("faq_3_a") },
-    { q: t("faq_4_q"), a: t("faq_4_a") },
-    { q: t("faq_5_q"), a: t("faq_5_a") },
-  ];
-
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/20 overflow-hidden">
       <LandingNavbar />
@@ -169,10 +131,8 @@ export default function LandingPage() {
       <section className="relative pt-28 pb-20 lg:pt-40 lg:pb-32 overflow-hidden">
         {/* Background Effects */}
         <div className="absolute inset-0 -z-10">
-          {/* Gradient Orbs */}
           <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[120px] dark:bg-primary/10" />
           <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-secondary/20 rounded-full blur-[120px] dark:bg-secondary/10" />
-          {/* Grid Pattern - Only visible in light mode */}
           <div
             className="absolute inset-0 dark:hidden"
             style={{
@@ -257,7 +217,6 @@ export default function LandingPage() {
             {/* Dashboard Preview */}
             <div className="mt-16 relative mx-auto max-w-5xl animate-scale-in stagger-5">
               <div className="relative rounded-2xl border border-border bg-card/50 dark:bg-slate-900/50 shadow-2xl overflow-hidden backdrop-blur-sm">
-                {/* Top Bar */}
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-muted/50 dark:bg-slate-800/50">
                   <div className="flex gap-1.5">
                     <div className="w-3 h-3 rounded-full bg-red-500" />
@@ -270,7 +229,6 @@ export default function LandingPage() {
                     </div>
                   </div>
                 </div>
-                {/* Preview Content */}
                 <div className="aspect-[16/9] bg-gradient-to-br from-muted/50 to-muted dark:from-slate-900 dark:to-slate-800 flex items-center justify-center">
                   <div className="text-center">
                     <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-4 shadow-lg">
@@ -279,7 +237,6 @@ export default function LandingPage() {
                     <p className="text-muted-foreground">Dashboard Preview</p>
                   </div>
                 </div>
-                {/* Glow Effect */}
                 <div className="absolute -inset-px bg-gradient-to-r from-primary/50 via-transparent to-secondary/50 rounded-2xl opacity-0 hover:opacity-100 transition-opacity duration-500 pointer-events-none blur-xl" />
               </div>
             </div>
@@ -295,9 +252,9 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-8 md:gap-12 lg:gap-16 opacity-60">
             {["Quaflow", "TasarlatDNS", "Quaflow", "TasarlatDNS", "Quaflow"].map(
-              (company) => (
+              (company, idx) => (
                 <div
-                  key={company}
+                  key={idx}
                   className="text-xl md:text-2xl font-bold text-muted-foreground/50"
                 >
                   {company}
@@ -311,7 +268,6 @@ export default function LandingPage() {
       {/* ========== FEATURES SECTION ========== */}
       <section id="features" className="py-20 lg:py-32">
         <div className="container mx-auto px-4 sm:px-6">
-          {/* Header */}
           <div className="max-w-3xl mx-auto text-center mb-16">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-6">
               {t("features_badge")}
@@ -324,25 +280,21 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Features Grid */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
             {features.map((feature, index) => (
               <div
                 key={index}
                 className="group relative p-8 rounded-2xl border border-border bg-card hover:bg-accent/50 dark:hover:bg-slate-800/50 transition-all duration-300 feature-card"
               >
-                {/* Icon */}
                 <div
                   className={`w-14 h-14 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 transition-transform`}
                 >
                   <feature.icon className="w-7 h-7 text-white" />
                 </div>
-                {/* Content */}
                 <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
                 <p className="text-muted-foreground leading-relaxed">
                   {feature.desc}
                 </p>
-                {/* Hover Glow */}
                 <div
                   className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-5 transition-opacity pointer-events-none`}
                 />
@@ -355,7 +307,6 @@ export default function LandingPage() {
       {/* ========== HOW IT WORKS ========== */}
       <section className="py-20 lg:py-32 bg-muted/30 dark:bg-slate-900/30">
         <div className="container mx-auto px-4 sm:px-6">
-          {/* Header */}
           <div className="max-w-3xl mx-auto text-center mb-16">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-6">
               {t("how_badge")}
@@ -366,20 +317,16 @@ export default function LandingPage() {
             <p className="text-lg text-muted-foreground">{t("how_subtitle")}</p>
           </div>
 
-          {/* Steps */}
           <div className="grid md:grid-cols-3 gap-8 lg:gap-12 max-w-5xl mx-auto">
             {steps.map((step, index) => (
               <div key={index} className="relative text-center">
-                {/* Number */}
                 <div className="text-7xl lg:text-8xl font-black text-primary/10 dark:text-primary/5 mb-4">
                   {step.number}
                 </div>
-                {/* Content */}
                 <h3 className="text-xl font-semibold mb-3 -mt-10">
                   {step.title}
                 </h3>
                 <p className="text-muted-foreground">{step.desc}</p>
-                {/* Connector Line */}
                 {index < steps.length - 1 && (
                   <div className="hidden md:block absolute top-12 left-[60%] w-[80%] h-px bg-gradient-to-r from-primary/30 to-transparent" />
                 )}
@@ -390,120 +337,7 @@ export default function LandingPage() {
       </section>
 
       {/* ========== PRICING SECTION ========== */}
-      <section id="pricing" className="py-20 lg:py-32">
-        <div className="container mx-auto px-4 sm:px-6">
-          {/* Header */}
-          <div className="max-w-3xl mx-auto text-center mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-6">
-              {t("pricing_badge")}
-            </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">
-              {t("pricing_title")}
-            </h2>
-            <p className="text-lg text-muted-foreground mb-8">
-              {t("pricing_subtitle")}
-            </p>
-
-            {/* Billing Toggle */}
-            <div className="inline-flex items-center p-1 rounded-full bg-muted border border-border">
-              <button
-                onClick={() => setBillingPeriod("monthly")}
-                className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
-                  billingPeriod === "monthly"
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {t("pricing_monthly")}
-              </button>
-              <button
-                onClick={() => setBillingPeriod("yearly")}
-                className={`px-6 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                  billingPeriod === "yearly"
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {t("pricing_yearly")}
-                <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-600 dark:text-green-400 text-xs">
-                  {t("pricing_yearly_save")}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* Pricing Cards */}
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {plans.map((plan, index) => (
-              <div
-                key={index}
-                className={`relative p-8 rounded-2xl border transition-all ${
-                  plan.popular
-                    ? "border-primary bg-primary/5 dark:bg-primary/10 pricing-popular shadow-xl"
-                    : "border-border bg-card hover:border-primary/50"
-                }`}
-              >
-                {/* Popular Badge */}
-                {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-primary-foreground text-sm font-medium">
-                    {t("pricing_popular")}
-                  </div>
-                )}
-
-                {/* Plan Header */}
-                <div className="mb-8">
-                  <h3 className="text-xl font-semibold mb-2">{plan.name}</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {plan.desc}
-                  </p>
-                  <div className="flex items-baseline gap-1">
-                    {!plan.isEnterprise && (
-                      <span className="text-lg text-muted-foreground">
-                        {t("pricing_currency")}
-                      </span>
-                    )}
-                    <span className="text-4xl lg:text-5xl font-bold">
-                      {plan.price}
-                    </span>
-                    {!plan.isEnterprise && (
-                      <span className="text-muted-foreground">
-                        {t("pricing_period")}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Features */}
-                <ul className="space-y-4 mb-8">
-                  {plan.features.map((feature, fIndex) => (
-                    <li key={fIndex} className="flex items-start gap-3">
-                      <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                      <span className="text-sm">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {/* CTA */}
-                <Link href="/login">
-                  <Button
-                    className={`w-full ${
-                      plan.popular
-                        ? "bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25"
-                        : ""
-                    }`}
-                    variant={plan.popular ? "default" : "outline"}
-                    size="lg"
-                  >
-                    {plan.isEnterprise
-                      ? t("pricing_contact")
-                      : t("pricing_cta")}
-                  </Button>
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <PricingSection products={products} />
 
       {/* ========== TESTIMONIALS SECTION ========== */}
       <section
@@ -511,7 +345,6 @@ export default function LandingPage() {
         className="py-20 lg:py-32 bg-muted/30 dark:bg-slate-900/30"
       >
         <div className="container mx-auto px-4 sm:px-6">
-          {/* Header */}
           <div className="max-w-3xl mx-auto text-center mb-16">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-6">
               {t("testimonials_badge")}
@@ -524,14 +357,12 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Testimonials Grid */}
           <div className="grid md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto">
             {testimonials.map((testimonial, index) => (
               <div
                 key={index}
                 className="p-8 rounded-2xl border border-border bg-card testimonial-card"
               >
-                {/* Stars */}
                 <div className="flex gap-1 mb-4">
                   {[...Array(5)].map((_, i) => (
                     <Star
@@ -540,11 +371,9 @@ export default function LandingPage() {
                     />
                   ))}
                 </div>
-                {/* Quote */}
                 <p className="text-foreground/90 mb-6 leading-relaxed">
                   &ldquo;{testimonial.text}&rdquo;
                 </p>
-                {/* Author */}
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-semibold">
                     {testimonial.avatar}
@@ -563,59 +392,12 @@ export default function LandingPage() {
       </section>
 
       {/* ========== FAQ SECTION ========== */}
-      <section id="faq" className="py-20 lg:py-32">
-        <div className="container mx-auto px-4 sm:px-6">
-          {/* Header */}
-          <div className="max-w-3xl mx-auto text-center mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-6">
-              {t("faq_badge")}
-            </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">
-              {t("faq_title")}
-            </h2>
-            <p className="text-lg text-muted-foreground">{t("faq_subtitle")}</p>
-          </div>
-
-          {/* FAQ Accordion */}
-          <div className="max-w-3xl mx-auto space-y-4">
-            {faqs.map((faq, index) => (
-              <div
-                key={index}
-                className="border border-border rounded-xl overflow-hidden bg-card"
-              >
-                <button
-                  onClick={() => setOpenFaq(openFaq === index ? null : index)}
-                  className="w-full flex items-center justify-between p-6 text-left hover:bg-accent/50 transition-colors"
-                >
-                  <span className="font-medium pr-4">{faq.q}</span>
-                  <ChevronDown
-                    className={`w-5 h-5 shrink-0 text-muted-foreground transition-transform duration-300 ease-out ${
-                      openFaq === index ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-                <div
-                  className={`grid transition-all duration-500 ease-out ${
-                    openFaq === index ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-                  }`}
-                >
-                  <div className="overflow-hidden">
-                    <div className="px-6 pb-6 text-muted-foreground">
-                      {faq.a}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <FaqSection />
 
       {/* ========== CTA SECTION ========== */}
       <section className="py-20 lg:py-32">
         <div className="container mx-auto px-4 sm:px-6">
           <div className="relative max-w-5xl mx-auto rounded-3xl overflow-hidden">
-            {/* Background */}
             <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-secondary" />
             <div
               className="absolute inset-0"
@@ -625,7 +407,6 @@ export default function LandingPage() {
               }}
             />
 
-            {/* Content */}
             <div className="relative z-10 py-16 lg:py-24 px-8 lg:px-16 text-center">
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6">
                 {t("cta_section_title")}

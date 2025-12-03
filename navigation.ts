@@ -1,3 +1,4 @@
+// navigation.ts
 import {createNavigation} from 'next-intl/navigation';
 import {defineRouting} from 'next-intl/routing';
 
@@ -85,6 +86,21 @@ export const routing = defineRouting({
       en: '/settings/team',
       tr: '/ayarlar/ekip',
       de: '/einstellungen/team'
+    },
+    '/settings/billing': {
+      en: '/settings/billing',
+      tr: '/ayarlar/faturalama',
+      de: '/einstellungen/abrechnung'
+    },
+    '/pricing': {
+      en: '/pricing',
+      tr: '/fiyatlandirma',
+      de: '/preise'
+    },
+    '/checkout/start': {
+      en: '/checkout/start',
+      tr: '/odeme/baslat',
+      de: '/kasse/starten'
     },
     '/onboarding': {
       en: '/onboarding',

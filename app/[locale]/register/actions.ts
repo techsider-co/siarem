@@ -10,6 +10,7 @@ export async function register(formData: FormData, locale: string) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const fullName = formData.get("fullName") as string;
+  const planId = formData.get("planId") as string | null; // 🆕 Plan ID
 
   // 1. Kullanıcıyı oluştur
   const { data: authData, error: signUpError } = await supabase.auth.signUp({
@@ -57,8 +58,13 @@ export async function register(formData: FormData, locale: string) {
   
   revalidatePath("/", "layout");
   
-  // Dashboard'a yönlendir
-  const dashboardPath = locale === 'tr' ? '/yonetim-paneli' : locale === 'de' ? '/instrumententafel' : '/dashboard';
-  redirect(`/${locale}${dashboardPath}`);
+  // 🆕 4. Plan ID varsa checkout ara katmanına, yoksa dashboard'a yönlendir
+  if (planId) {
+    // Checkout Start sayfasına yönlendir
+    redirect(`/${locale}/checkout/start?plan=${planId}`);
+  } else {
+    // Dashboard'a yönlendir
+    const dashboardPath = locale === 'tr' ? '/yonetim-paneli' : locale === 'de' ? '/instrumententafel' : '/dashboard';
+    redirect(`/${locale}${dashboardPath}`);
+  }
 }
-

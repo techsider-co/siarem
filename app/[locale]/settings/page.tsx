@@ -141,7 +141,7 @@ export default function SettingsPage() {
       toast.error("Çıkış yapılamadı: " + error.message);
     } else {
       toast.success("Oturum kapatıldı. Güvenli uçuşlar! 👋");
-      router.push("/login"); // Login sayfasına at
+      router.push("/"); // Landing page'e yönlendir
       router.refresh(); // Cache'i temizle
     }
   };
